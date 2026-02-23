@@ -54,7 +54,7 @@ NanoQuiz is a lightweight, open-source quiz game platform inspired by popular on
 - When hosting a game, upload your JSON file to start.
 
 For a collection of ready-to-use quiz JSONs, visit:  
-[Quiz JSON Repository (placeholder)](https://github.com/kylejckson/nanoquiz-jsons)
+[Quiz JSON Repository](https://github.com/kylejckson/NanoQuizExamples)
 
 ## License
 
