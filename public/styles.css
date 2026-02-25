@@ -134,7 +134,14 @@
 
 /* ── Reset ──────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { height: 100%; overflow: hidden; }
+html {
+  height: 100%;
+  overflow: hidden;
+  /* Hide scrollbars on Android/WebKit browsers (Edge Mobile, Chrome) */
+  scrollbar-width: none;       /* Firefox */
+  -ms-overflow-style: none;    /* IE/Edge legacy */
+}
+html::-webkit-scrollbar { display: none; width: 0; height: 0; }
 body {
   min-height: 100%;
   font-family: var(--font-body);
@@ -145,7 +152,11 @@ body {
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: none;
+  /* Hide scrollbars on Android/WebKit browsers */
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+body::-webkit-scrollbar { display: none; width: 0; height: 0; }
 
 /* ── THE LIVING BACKGROUND ──────────────────────────────────── */
 
@@ -638,6 +649,10 @@ h1, h2, h3 {
   position: relative; flex-shrink: 0;
   width: 68px; height: 68px;
   display: flex; align-items: center; justify-content: center;
+  /* Isolate the spinning plasma animation so it never triggers a document
+     reflow or causes overflow on oddly-shaped / narrow mobile screens. */
+  contain: layout paint;
+  overflow: visible;
 }
 /* Rotating plasma halo behind the ring */
 .timer-container::before {
@@ -1096,13 +1111,14 @@ h1, h2, h3 {
 }
 .reaction-source {
   position: fixed;
-  width: fit-content;
+  width: max-content;
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   font-family: var(--font-display); font-size: 0.7rem; font-weight: 700;
   color: var(--text-subtle);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: var(--r-full); padding: 2px 8px;
-  box-shadow: var(--shadow-sm); pointer-events: none; z-index: 400;
+  text-shadow: 0 1px 4px rgba(0,0,0,0.8), 0 0 8px rgba(0,0,0,0.6);
+  pointer-events: none; z-index: 400;
   animation: emojiRise 2.6s cubic-bezier(0.22,1,0.36,1) both;
   white-space: nowrap;
 }
