@@ -384,13 +384,40 @@ async function loadHostLibrary() {
     const subjectSet = new Set();
     hostLibraryAll.forEach(q => { const s = q.subject || q.meta?.subject; if (s) subjectSet.add(s); });
     if (el.hostSubjectChips && subjectSet.size > 0) {
-      [...subjectSet].sort().forEach(s => {
+      const SUBJECT_VISIBLE = 8;
+      const sortedSubjects = [...subjectSet].sort();
+      sortedSubjects.slice(0, SUBJECT_VISIBLE).forEach(s => {
         const chip = document.createElement('button');
         chip.className    = 'filter-chip';
         chip.dataset.value = s;
         chip.textContent  = (SUBJECT_ICON_MAP[s] || '') + ' ' + s;
         el.hostSubjectChips.appendChild(chip);
       });
+      if (sortedSubjects.length > SUBJECT_VISIBLE) {
+        const moreWrap = document.createElement('div');
+        moreWrap.className = 'subject-more-wrap';
+        const moreBtn = document.createElement('button');
+        moreBtn.className = 'filter-chip subject-more-btn';
+        moreBtn.setAttribute('type', 'button');
+        moreBtn.textContent = '+' + (sortedSubjects.length - SUBJECT_VISIBLE) + ' more ▾';
+        const dropdown = document.createElement('div');
+        dropdown.className = 'subject-more-dropdown';
+        sortedSubjects.slice(SUBJECT_VISIBLE).forEach(s => {
+          const chip = document.createElement('button');
+          chip.className    = 'filter-chip';
+          chip.dataset.value = s;
+          chip.textContent  = (SUBJECT_ICON_MAP[s] || '') + ' ' + s;
+          dropdown.appendChild(chip);
+        });
+        moreBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          dropdown.classList.toggle('open');
+        });
+        document.addEventListener('click', () => dropdown.classList.remove('open'), { passive: true });
+        moreWrap.appendChild(moreBtn);
+        moreWrap.appendChild(dropdown);
+        el.hostSubjectChips.appendChild(moreWrap);
+      }
     }
     document.getElementById('hostLoadingMsg')?.remove();
     renderHostGrid();
@@ -404,9 +431,18 @@ async function loadHostLibrary() {
 if (el.hostSubjectChips) {
   el.hostSubjectChips.addEventListener('click', e => {
     const chip = e.target.closest('.filter-chip');
-    if (!chip) return;
+    if (!chip || chip.classList.contains('subject-more-btn')) return;
     hostLibrarySubject = chip.dataset.value;
-    el.hostSubjectChips.querySelectorAll('.filter-chip').forEach(c => c.classList.toggle('active', c.dataset.value === hostLibrarySubject));
+    // close dropdown
+    el.hostSubjectChips.querySelector('.subject-more-dropdown')?.classList.remove('open');
+    // update active states (exclude the more btn itself)
+    el.hostSubjectChips.querySelectorAll('.filter-chip:not(.subject-more-btn)').forEach(c => c.classList.toggle('active', c.dataset.value === hostLibrarySubject));
+    // highlight more btn when the active subject lives inside the dropdown
+    const moreBtn = el.hostSubjectChips.querySelector('.subject-more-btn');
+    if (moreBtn) {
+      const inDropdown = [...el.hostSubjectChips.querySelectorAll('.subject-more-dropdown .filter-chip')].some(c => c.dataset.value === hostLibrarySubject);
+      moreBtn.classList.toggle('active', inDropdown);
+    }
     renderHostGrid();
   });
 }
