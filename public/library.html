@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Browse free quizzes on Questron — Geography, Science, History, Pop Culture and more." />
+  <meta name="theme-color" content="#b8ff3c" />
+  <title>Quiz Library · Questron</title>
+  <link rel="canonical" href="https://questron.app/library" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://questron.app/library" />
+  <meta property="og:title" content="Quiz Library · Questron" />
+  <meta property="og:description" content="Browse free quizzes — Geography, Science, History, Pop Culture and more." />
+  <meta property="og:image" content="https://questron.app/logo.png" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Quiz Library · Questron" />
+  <meta name="twitter:description" content="Browse free quizzes — Geography, Science, History, Pop Culture and more." />
+  <meta name="twitter:image" content="https://questron.app/logo.png" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    /* ── Library page layout ─────────────────────────────────── */
+    .library-page {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: var(--gap-xl) var(--gap-md) var(--gap-2xl);
+    }
+    .library-header {
+      text-align: center;
+      margin-bottom: var(--gap-xl);
+    }
+    .library-header h1 {
+      font-family: var(--font-display);
+      font-size: clamp(1.6rem, 4vw, 2.2rem);
+      font-weight: 800;
+      margin-bottom: var(--gap-sm);
+    }
+    .library-header p {
+      color: var(--text-subtle);
+      font-size: 0.9rem;
+      max-width: 440px;
+      margin: 0 auto;
+    }
+
+    /* ── Controls (search + filters) ─────────────────────────── */
+    .library-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--gap-md);
+      margin-bottom: var(--gap-lg);
+    }
+    .library-search { width: 100%; max-width: 480px; }
+    .filter-panel {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: var(--gap-sm);
+      flex-wrap: wrap;
+    }
+    .filter-group__label {
+      font-family: var(--font-mono);
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.10em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      min-width: 68px;
+      flex-shrink: 0;
+    }
+    .filter-group__chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    /* ── Quiz card meta row ───────────────────────────────────── */
+    .quiz-card__body { display: flex; flex-direction: column; gap: var(--gap-xs); }
+    .quiz-card__meta {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 6px;
+      font-size: 0.78rem;
+      color: var(--text-subtle);
+    }
+    .quiz-card__subject {
+      font-size: 0.7rem;
+      font-weight: 700;
+      color: var(--text-subtle);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+    }
+    .diff-badge {
+      font-size: 0.68rem;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 999px;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+    .diff-easy   { background: rgba(184,255,60,0.15); color: var(--lime); border: 1px solid rgba(184,255,60,0.3); }
+    .diff-medium { background: rgba(255,210,63,0.15); color: #ffd23f;     border: 1px solid rgba(255,210,63,0.3); }
+    .diff-hard   { background: rgba(255,92,26,0.15);  color: var(--spark); border: 1px solid rgba(255,92,26,0.3); }
+
+    /* ── Upload row ───────────────────────────────────────────── */
+    .library-upload-row {
+      max-width: 1100px;
+      width: 100%;
+      margin: var(--gap-xl) auto 0;
+    }
+    .library-upload-card {
+      display: flex;
+      align-items: center;
+      gap: var(--gap-md);
+      padding: var(--gap-md) var(--gap-lg);
+      flex-wrap: wrap;
+    }
+    .library-upload-text { flex: 1; min-width: 200px; }
+    .library-upload-title { font-family: var(--font-display); font-weight: 700; font-size: 0.92rem; margin-bottom: 3px; }
+    .library-upload-sub   { font-size: 0.82rem; color: var(--text-subtle); }
+  </style>
+</head>
+<body>
+  <script src="/nav.js"></script>
+
+  <div class="library-page">
+
+    <!-- Header -->
+    <div class="library-header">
+      <h1>Quiz Library</h1>
+      <p>Free quizzes, ready to host. Click any card to load it directly into the host screen.</p>
+    </div>
+
+    <!-- Search + filters -->
+    <div class="library-controls">
+
+      <div class="library-search">
+        <input id="searchInput" class="input" type="search"
+               placeholder="Search by title, topic, subject…" autocomplete="off" />
+      </div>
+
+      <!-- Filter groups — populated after data loads -->
+      <div id="filterPanel" class="filter-panel hidden">
+
+        <div class="filter-group" id="subjectGroup">
+          <span class="filter-group__label">Subject</span>
+          <div class="filter-group__chips" id="subjectChips">
+            <button class="filter-chip active" data-value="">All</button>
+          </div>
+        </div>
+
+        <div class="filter-group" id="difficultyGroup">
+          <span class="filter-group__label">Difficulty</span>
+          <div class="filter-group__chips" id="difficultyChips">
+            <button class="filter-chip active" data-value="">Any</button>
+            <button class="filter-chip" data-value="easy">Easy</button>
+            <button class="filter-chip" data-value="medium">Medium</button>
+            <button class="filter-chip" data-value="hard">Hard</button>
+          </div>
+        </div>
+
+        <div class="filter-group" id="audienceGroup">
+          <span class="filter-group__label">Audience</span>
+          <div class="filter-group__chips" id="audienceChips">
+            <button class="filter-chip active" data-value="">All</button>
+            <button class="filter-chip" data-value="kids">Kids</button>
+            <button class="filter-chip" data-value="teens">Teens</button>
+            <button class="filter-chip" data-value="adults">Adults</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Quiz grid -->
+    <div class="library-grid" id="quizGrid">
+      <div class="library-empty" id="loadingMsg">Loading quizzes…</div>
+    </div>
+
+    <!-- Upload your own -->
+    <div class="library-upload-row">
+      <div class="glass library-upload-card">
+        <div class="library-upload-text">
+          <div class="library-upload-title">Use your own quiz</div>
+          <div class="library-upload-sub">Upload a .json or .questron file — it stays on your device and loads directly into the host screen.</div>
+        </div>
+        <label style="cursor:pointer;">
+          <input type="file" id="localFileInput" accept=".json,.questron,application/json" style="display:none;" />
+          <span class="btn btn-secondary" style="display:inline-block;">Upload file →</span>
+        </label>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="/constants.js"></script>
+  <script>
+    initPulseBackground();
+
+    // ── Config ────────────────────────────────────────────────
+    const LIBRARY_INDEX_URL =
+      'https://cdn.jsdelivr.net/gh/kylejckson/questron-library@main/index.json';
+
+    // ── State ─────────────────────────────────────────────────
+    let allQuizzes       = [];
+    let activeSubject    = '';
+    let activeDifficulty = '';
+    let activeAudience   = '';
+    let searchTerm       = '';
+
+    // ── DOM refs ──────────────────────────────────────────────
+    const quizGrid        = document.getElementById('quizGrid');
+    const loadingMsg      = document.getElementById('loadingMsg');
+    const searchInput     = document.getElementById('searchInput');
+    const filterPanel     = document.getElementById('filterPanel');
+    const subjectChips    = document.getElementById('subjectChips');
+    const difficultyChips = document.getElementById('difficultyChips');
+    const audienceChips   = document.getElementById('audienceChips');
+
+    // ── Generic chip group handler ─────────────────────────────
+    function makeChipGroup(container, getValue, setValue) {
+      container.addEventListener('click', e => {
+        const chip = e.target.closest('.filter-chip');
+        if (!chip) return;
+        setValue(chip.dataset.value);
+        container.querySelectorAll('.filter-chip').forEach(c =>
+          c.classList.toggle('active', c.dataset.value === getValue()));
+        renderGrid();
+      });
+    }
+
+    makeChipGroup(subjectChips,    () => activeSubject,    v => activeSubject    = v);
+    makeChipGroup(difficultyChips, () => activeDifficulty, v => activeDifficulty = v);
+    makeChipGroup(audienceChips,   () => activeAudience,   v => activeAudience   = v);
+
+    searchInput.addEventListener('input', () => {
+      searchTerm = searchInput.value.toLowerCase().trim();
+      renderGrid();
+    });
+
+    // ── Render grid ────────────────────────────────────────────
+    const DIFF_LABEL  = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+    const DIFF_CLASS  = { easy: 'diff-easy', medium: 'diff-medium', hard: 'diff-hard' };
+    const SUBJECT_ICON = {
+      'Geography': '🌍', 'History': '📜', 'Science': '🔬', 'Pop Culture': '🎬',
+      'Sports': '⚽', 'Music': '🎵', 'Food & Drink': '🍕', 'Technology': '💻',
+      'Language': '✍️', 'Art & Literature': '🎨', 'Mathematics': '🔢',
+      'General Knowledge': '🧠',
+    };
+
+    function renderGrid() {
+      const filtered = allQuizzes.filter(q => {
+        const sub  = (q.subject  || q.meta?.subject  || '').toLowerCase();
+        const diff = (q.difficulty || q.meta?.difficulty || '').toLowerCase();
+        const aud  = (q.audience  || q.meta?.audience  || '').toLowerCase();
+        const tags = (q.tags || q.meta?.tags || []).join(' ').toLowerCase();
+        const desc = (q.description || q.meta?.description || '').toLowerCase();
+        const text = `${(q.title||'')} ${desc} ${sub} ${tags}`.toLowerCase();
+
+        const matchSubject    = !activeSubject    || sub  === activeSubject.toLowerCase();
+        const matchDifficulty = !activeDifficulty || diff === activeDifficulty;
+        const matchAudience   = !activeAudience   || aud  === activeAudience || aud === 'all';
+        const matchText       = !searchTerm       || text.includes(searchTerm);
+
+        return matchSubject && matchDifficulty && matchAudience && matchText;
+      });
+
+      if (filtered.length === 0) {
+        quizGrid.innerHTML = '<div class="library-empty">No quizzes matched your filters.</div>';
+        return;
+      }
+
+      quizGrid.innerHTML = filtered.map(q => {
+        const subject    = q.subject    || q.meta?.subject    || '';
+        const difficulty = q.difficulty || q.meta?.difficulty || '';
+        const tags       = (q.tags || q.meta?.tags || []).slice(0, 3);
+        const qCount     = q.questionCount || '?';
+        const mins       = q.estimatedMinutes || q.meta?.estimatedMinutes || null;
+        const icon       = SUBJECT_ICON[subject] || '📋';
+
+        const cover = q.coverUrl
+          ? `<img class="quiz-card__cover" src="${escHtml(q.coverUrl)}" alt="" loading="lazy" />`
+          : `<div class="quiz-card__cover-placeholder">${icon}</div>`;
+
+        const diffBadge = difficulty
+          ? `<span class="diff-badge ${DIFF_CLASS[difficulty] || ''}">${DIFF_LABEL[difficulty] || difficulty}</span>`
+          : '';
+
+        const subjectBadge = subject
+          ? `<span class="quiz-card__subject">${escHtml(subject)}</span>`
+          : '';
+
+        const tagHtml = tags.length
+          ? `<div class="quiz-card__tags">${tags.map(t => `<span class="quiz-tag">${escHtml(t)}</span>`).join('')}</div>`
+          : '';
+
+        return `
+          <div class="glass-elevated quiz-card" data-url="${escHtml(q.quizUrl || '')}" tabindex="0" role="button"
+               aria-label="Load quiz: ${escHtml(q.title)}">
+            ${cover}
+            <div class="quiz-card__body">
+              <div class="quiz-card__title">${escHtml(q.title)}</div>
+              <div class="quiz-card__meta">
+                ${subjectBadge}
+                <span>${qCount} questions${mins ? ` · ~${mins} min` : ''}</span>
+                ${diffBadge}
+              </div>
+              ${tagHtml}
+            </div>
+          </div>`;
+      }).join('');
+
+      quizGrid.querySelectorAll('.quiz-card').forEach(card => {
+        const open = () => { if (card.dataset.url) openQuiz(card.dataset.url); };
+        card.addEventListener('click', open);
+        card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') open(); });
+      });
+    }
+
+    // ── Open quiz in host ──────────────────────────────────────
+    async function openQuiz(url) {
+      if (!url) return;
+      try {
+        const res  = await fetch(url);
+        const data = await res.json();
+        sessionStorage.setItem('questron_quiz_payload', JSON.stringify(data));
+        window.location.href = '/host?from=library';
+      } catch {
+        alert('Failed to load quiz. Try again or use the manual upload below.');
+      }
+    }
+
+    // ── Local file upload ──────────────────────────────────────
+    document.getElementById('localFileInput').addEventListener('change', async e => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      try {
+        const text = await file.text();
+        const data = JSON.parse(text);
+        sessionStorage.setItem('questron_quiz_payload', JSON.stringify(data));
+        window.location.href = '/host?from=library';
+      } catch {
+        alert('Could not parse that file — check it\'s valid JSON.');
+      }
+    });
+
+    // ── Fetch library index ────────────────────────────────────
+    async function loadLibrary() {
+      const CACHE_KEY = 'qlib_' + LIBRARY_INDEX_URL.slice(-24);
+      try {
+        let data;
+        try {
+          const cached = sessionStorage.getItem(CACHE_KEY);
+          if (cached) data = JSON.parse(cached);
+        } catch {}
+        if (!data) {
+          const res = await fetch(LIBRARY_INDEX_URL);
+          data = await res.json();
+          try { sessionStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch {}
+        }
+        allQuizzes = Array.isArray(data.quizzes) ? data.quizzes : [];
+
+        // Build subject chips from data
+        const subjectSet = new Set();
+        allQuizzes.forEach(q => {
+          const s = q.subject || q.meta?.subject;
+          if (s) subjectSet.add(s);
+        });
+
+        if (subjectSet.size > 0) {
+          [...subjectSet].sort().forEach(s => {
+            const chip = document.createElement('button');
+            chip.className = 'filter-chip';
+            chip.dataset.value = s;
+            chip.textContent = (SUBJECT_ICON[s] ? SUBJECT_ICON[s] + ' ' : '') + s;
+            subjectChips.appendChild(chip);
+          });
+        }
+
+        // Only show difficulty/audience rows if there's real variance
+        const diffs = new Set(allQuizzes.map(q => q.difficulty || q.meta?.difficulty).filter(Boolean));
+        const auds  = new Set(allQuizzes.map(q => q.audience  || q.meta?.audience ).filter(Boolean));
+        document.getElementById('difficultyGroup').style.display = diffs.size > 1 ? '' : 'none';
+        document.getElementById('audienceGroup').style.display   = auds.size  > 1 ? '' : 'none';
+
+        filterPanel.classList.remove('hidden');
+        loadingMsg.remove();
+        renderGrid();
+      } catch {
+        loadingMsg.textContent = 'Could not load the quiz library. Upload a file below to host your own quiz.';
+      }
+    }
+
+    loadLibrary();
+  </script>
+</body>
+</html>

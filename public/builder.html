@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Questron Builder — create quiz files with image support" />
+  <meta name="theme-color" content="#b8ff3c" />
+  <title>Builder · Questron</title>
+  <link rel="canonical" href="https://questron.app/build" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://questron.app/build" />
+  <meta property="og:title" content="Builder · Questron" />
+  <meta property="og:description" content="Create custom quiz packs with image support for Questron." />
+  <meta property="og:image" content="https://questron.app/logo.png" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Builder · Questron" />
+  <meta name="twitter:description" content="Create custom quiz packs with image support for Questron." />
+  <meta name="twitter:image" content="https://questron.app/logo.png" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="/styles.css" />
+  <!-- JSZip loaded on demand when a .questron file is used -->
+  <style>
+    .img-mode-tabs { display:flex; gap:6px; margin-bottom:var(--gap-sm); }
+    .img-tab {
+      font-size:0.78rem; font-family:var(--font-display); font-weight:600;
+      text-transform:uppercase; letter-spacing:0.06em;
+      padding:4px 12px; border-radius:6px; border:1px solid var(--border);
+      background:transparent; color:var(--text-muted); cursor:pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .img-tab.active { background:var(--lime); color:#111; border-color:var(--lime); }
+    .img-upload-zone {
+      border: 2px dashed var(--border); border-radius: 10px;
+      padding: var(--gap-md); text-align: center;
+      cursor: pointer; transition: border-color 0.15s, background 0.15s;
+      position: relative;
+    }
+    .img-upload-zone:hover { border-color: var(--lime); background: rgba(184,255,60,0.04); }
+    .img-upload-zone input[type=file] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+    .img-preview-wrap { position:relative; display:inline-block; margin-top:var(--gap-sm); }
+    .img-preview { max-height:140px; max-width:100%; border-radius:8px; display:block; }
+    .img-remove-btn {
+      position:absolute; top:-8px; right:-8px; width:22px; height:22px;
+      border-radius:50%; background:#e03; color:#fff;
+      border:none; font-size:0.75rem; font-weight:700; cursor:pointer;
+      display:flex; align-items:center; justify-content:center; line-height:1;
+    }
+    .img-error { color:#e03; font-size:0.82rem; margin-top:4px; }
+    .img-hint { font-size:0.82rem; color:var(--text-muted); }
+    .export-actions { display:flex; gap:var(--gap-md); flex-wrap:wrap; align-items:center; }
+    .export-sep { border-left:1px solid var(--border); height:32px; }
+    .badge-new {
+      display:inline-block; font-size:0.65rem; font-family:var(--font-display);
+      font-weight:700; letter-spacing:0.06em; text-transform:uppercase;
+      background:var(--lime); color:#111; border-radius:4px;
+      padding:1px 5px; vertical-align:middle; margin-left:4px; line-height:1.4;
+    }
+  </style>
+</head>
+<body>
+  <div class="container" style="max-width:720px;padding-top:32px;padding-bottom:64px;">
+
+    <!-- Header -->
+    <div class="builder-header">
+      <div style="font-family:var(--font-display);font-size:2rem;font-weight:700;letter-spacing:-0.02em;">
+        <span style="color:var(--lime);">Quest</span>ron <span style="font-weight:400;color:var(--text-muted);">Builder</span>
+      </div>
+      <div class="muted" style="margin-top:6px;font-size:0.9rem;">Build a quiz visually — export as <strong>.questron</strong> (with images) or <strong>.json</strong></div>
+      <div style="margin-top:var(--gap-md);display:flex;gap:var(--gap-sm);justify-content:center;flex-wrap:wrap;">
+        <a href="/host" style="font-size:0.85rem;color:var(--text-muted);text-decoration:none;">← Back to Host</a>
+        <span style="color:var(--border);">|</span>
+        <label style="font-size:0.85rem;color:var(--accent-light);cursor:pointer;">
+          📂 Load file to edit
+          <input type="file" id="loadFile" accept=".json,.questron" style="display:none;" />
+        </label>
+      </div>
+    </div>
+
+    <!-- Quiz meta -->
+    <div class="glass" style="padding:var(--gap-lg);margin-bottom:var(--gap-lg);">
+      <div style="display:grid;grid-template-columns:1fr auto;gap:var(--gap-md);align-items:end;">
+        <div>
+          <label style="font-family:var(--font-display);font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);display:block;margin-bottom:6px;">Quiz Title</label>
+          <input class="builder-input" id="quizTitle" type="text" placeholder="My Awesome Quiz" maxlength="80" style="margin:0;" />
+        </div>
+        <div>
+          <label style="font-family:var(--font-display);font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);display:block;margin-bottom:6px;">Default Time (s)</label>
+          <input class="time-input" id="defaultTime" type="number" min="5" max="90" value="20" />
+        </div>
+      </div>
+      <div style="margin-top:var(--gap-md);display:flex;align-items:center;gap:var(--gap-sm);">
+        <input type="checkbox" id="shuffleToggle" style="accent-color:var(--accent);width:16px;height:16px;" checked />
+        <label for="shuffleToggle" style="font-size:0.9rem;color:var(--text-muted);cursor:pointer;">Shuffle question order when hosting</label>
+      </div>
+    </div>
+
+    <!-- Questions list -->
+    <div id="questionsList"></div>
+
+    <!-- Add question button -->
+    <button id="addQuestionBtn" class="btn btn-ghost btn-lg" style="width:100%;margin-bottom:var(--gap-xl);">
+      + Add Question
+    </button>
+
+    <!-- Actions -->
+    <div class="builder-actions">
+      <div class="export-actions">
+        <button id="downloadQuestronBtn" class="btn btn-primary btn-lg">
+          ⬇ Download .questron <span class="badge-new">images</span>
+        </button>
+        <div class="export-sep"></div>
+        <button id="downloadJsonBtn" class="btn btn-ghost">⬇ .json only</button>
+        <button id="previewBtn" class="btn btn-ghost">Preview JSON</button>
+        <div class="export-sep"></div>
+        <button id="hostNowBtn" class="btn btn-primary" style="background:var(--spark);box-shadow:0 0 18px rgba(255,92,26,0.3);">
+          ⚡ Host Now
+        </button>
+      </div>
+      <span id="buildMsg" style="font-size:0.88rem;color:#e03;margin-top:var(--gap-sm);display:block;"></span>
+    </div>
+    <pre id="jsonPreview" class="json-preview hidden"></pre>
+  </div>
+
+  <script>
+    // ── Lazy-load JSZip on first .questron use ──────────────────
+    async function ensureJSZip() {
+      if (typeof JSZip !== 'undefined') return;
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
+        s.crossOrigin = 'anonymous';
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('Failed to load JSZip'));
+        document.head.appendChild(s);
+      });
+    }
+
+    // ── Constants ─────────────────────────────────────────────────────
+    const MAX_IMAGE_BYTES = 700 * 1024; // 700 KB binary → ~933 KB base64 — fits in CF's 1 MB WS message
+    const MAX_QUESTIONS   = 50;
+    const SHAPES    = ['A','B','C','D'];
+    const OPT_COLORS = ['opt-a','opt-b','opt-c','opt-d'];
+
+    // ── State ─────────────────────────────────────────────────────────
+    let questions = [];
+    let qCounter  = 0;
+
+    // ── Security: validate image by magic bytes ────────────────────
+    // Deliberately excludes SVG — SVG can embed arbitrary scripts.
+    async function validateImageFile(file) {
+      if (file.size > MAX_IMAGE_BYTES) {
+        return { ok: false, error: `Image too large (max ${Math.round(MAX_IMAGE_BYTES/1024)} KB, got ${Math.round(file.size/1024)} KB).` };
+      }
+      const buf = await file.slice(0, 12).arrayBuffer();
+      const b   = new Uint8Array(buf);
+      let mime  = null;
+      if (b[0]===0xFF && b[1]===0xD8) mime = 'image/jpeg';
+      else if (b[0]===0x89 && b[1]===0x50 && b[2]===0x4E && b[3]===0x47) mime = 'image/png';
+      else if (b[0]===0x47 && b[1]===0x49 && b[2]===0x46) mime = 'image/gif';
+      else if (b[0]===0x52 && b[1]===0x49 && b[2]===0x46 && b[3]===0x46 &&
+               b[8]===0x57 && b[9]===0x45 && b[10]===0x42 && b[11]===0x50) mime = 'image/webp';
+      if (!mime) return { ok: false, error: 'Unsupported format. Use JPEG, PNG, WebP, or GIF.' };
+      return { ok: true, mime };
+    }
+
+    // Sanitize a filename to safe alphanumeric characters for ZIP entries.
+    function sanitizeFilename(name) {
+      return name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 80);
+    }
+
+    function fileToDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const r = new FileReader();
+        r.onload  = () => resolve(r.result);
+        r.onerror = reject;
+        r.readAsDataURL(file);
+      });
+    }
+
+    // ── Render all questions ─────────────────────────────────────────
+    function escBuilder(str) {
+      return String(str || '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function buildImageSectionHtml(q) {
+      const noneActive   = q.imageMode === 'none'   ? 'active' : '';
+      const urlActive    = q.imageMode === 'url'    ? 'active' : '';
+      const uploadActive = q.imageMode === 'upload' ? 'active' : '';
+      let modeContent = '';
+      if (q.imageMode === 'url') {
+        modeContent = `<input class="builder-input" data-field="imageUrl" type="url"
+          placeholder="https://example.com/image.jpg"
+          value="${escBuilder(q.imageUrl || '')}" style="margin-top:var(--gap-sm);" />`;
+      } else if (q.imageMode === 'upload') {
+        modeContent = `
+          <div class="img-upload-zone" data-uploadzone="${q.id}">
+            <input type="file" accept="image/jpeg,image/png,image/webp,image/gif"
+              data-imgupload="${q.id}" />
+            <div class="img-hint">Click or drag a JPEG / PNG / WebP / GIF here<br>
+              <span style="font-size:0.76rem;opacity:0.6;">Max 800 KB — SVG not allowed</span>
+            </div>
+          </div>
+          <div id="imgerr-${q.id}" class="img-error" style="display:none;"></div>
+          <div class="img-preview-wrap" id="imgprev-${q.id}"></div>`;
+      }
+      return `<div style="margin:var(--gap-sm) 0;">
+        <div style="font-family:var(--font-display);font-size:0.78rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:6px;">Image (optional)</div>
+        <div class="img-mode-tabs">
+          <button class="img-tab ${noneActive}"   data-imgtab="none"   data-qid="${q.id}">None</button>
+          <button class="img-tab ${urlActive}"    data-imgtab="url"    data-qid="${q.id}">URL</button>
+          <button class="img-tab ${uploadActive}" data-imgtab="upload" data-qid="${q.id}">Upload</button>
+        </div>
+        <div data-imgcontent="${q.id}">${modeContent}</div>
+      </div>`;
+    }
+
+    function render() {
+      const list = document.getElementById('questionsList');
+      list.innerHTML = '';
+      questions.forEach((q, qi) => {
+        const div = document.createElement('div');
+        div.className = 'question-editor';
+        div.dataset.qid = q.id;
+
+        div.innerHTML = `
+          <div class="question-num">Question ${qi + 1}</div>
+          <button class="remove-question-btn" data-qid="${q.id}" title="Remove question">✕</button>
+
+          <input class="builder-input" data-field="text" type="text"
+            placeholder="Question text…" maxlength="280" value="${escBuilder(q.text)}" />
+
+          ${buildImageSectionHtml(q)}
+
+          <div class="time-input-row">
+            <span>Time limit:</span>
+            <input class="time-input" data-field="time" type="number" min="5" max="90" value="${q.timeLimitSeconds}" />
+            <span>seconds</span>
+          </div>
+
+          <div style="margin-top:var(--gap-md);font-family:var(--font-display);font-size:0.8rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:var(--text-muted);margin-bottom:var(--gap-sm);">
+            Options &nbsp;<span style="font-weight:400;color:var(--text-muted);text-transform:none;letter-spacing:0;">(click circle to mark correct)</span>
+          </div>
+          ${q.options.map((opt, oi) => `
+            <div class="option-row" data-oi="${oi}">
+              <button class="option-correct-toggle ${q.correctIds.includes(opt.id) ? 'correct' : ''}"
+                data-qid="${q.id}" data-oid="${opt.id}" title="${q.correctIds.includes(opt.id) ? 'Correct' : 'Mark correct'}">
+                ${q.correctIds.includes(opt.id) ? '✓' : ''}
+              </button>
+              <span style="font-size:0.85rem;font-family:var(--font-display);font-weight:800;color:var(--text-muted);min-width:18px;text-align:center;">${SHAPES[oi]}</span>
+              <input class="builder-input" style="flex:1;margin:0;" data-field="optlabel"
+                data-oi="${oi}" type="text" placeholder="Option ${String.fromCharCode(65+oi)}…"
+                maxlength="120" value="${escBuilder(opt.label)}" />
+              ${q.options.length > 2 ? `<button class="remove-question-btn" style="position:static;" data-qid="${q.id}" data-deloi="${oi}" title="Remove option">✕</button>` : ''}
+            </div>`).join('')}
+          ${q.options.length < 4 ? `<button class="btn btn-ghost" style="margin-top:var(--gap-sm);font-size:0.85rem;padding:6px 14px;" data-addopt="${q.id}">+ Add Option</button>` : ''}
+        `;
+        list.appendChild(div);
+
+        // Attach image preview (can't inline blob src safely in innerHTML)
+        if (q.imageMode === 'upload' && q.imageDataUrl) {
+          const wrap = div.querySelector(`#imgprev-${q.id}`);
+          if (wrap && wrap.children.length === 0) {
+            const img = document.createElement('img');
+            img.className = 'img-preview';
+            img.src = q.imageDataUrl;
+            img.alt = 'Preview';
+            const rb = document.createElement('button');
+            rb.className = 'img-remove-btn';
+            rb.textContent = '✕';
+            rb.title = 'Remove image';
+            rb.dataset.removeimg = q.id;
+            const pw = document.createElement('div');
+            pw.className = 'img-preview-wrap';
+            pw.appendChild(img);
+            pw.appendChild(rb);
+            wrap.appendChild(pw);
+          }
+        }
+      });
+    }
+
+    // ── Event delegation ─────────────────────────────────────────
+    document.getElementById('questionsList').addEventListener('input', (e) => {
+      const t = e.target;
+      const field = t.dataset.field;
+      if (!field) return;
+      const editorEl = t.closest('.question-editor');
+      if (!editorEl) return;
+      const q = questions.find(q => q.id === editorEl.dataset.qid);
+      if (!q) return;
+
+      if (field === 'text') q.text = t.value;
+      else if (field === 'imageUrl') q.imageUrl = t.value.trim() || null;
+      else if (field === 'time') q.timeLimitSeconds = Math.max(5, Math.min(90, parseInt(t.value)||20));
+      else if (field === 'optlabel') q.options[parseInt(t.dataset.oi)].label = t.value;
+    });
+
+    // Image upload — file picker change
+    document.getElementById('questionsList').addEventListener('change', async (e) => {
+      const input = e.target;
+      if (!input.dataset.imgupload) return;
+      const file = input.files?.[0];
+      if (!file) return;
+      const qid = input.dataset.imgupload;
+      const q = questions.find(q => q.id === qid);
+      if (!q) return;
+      const errEl = document.getElementById(`imgerr-${qid}`);
+      const result = await validateImageFile(file);
+      if (!result.ok) {
+        if (errEl) { errEl.textContent = result.error; errEl.style.display = 'block'; }
+        input.value = '';
+        return;
+      }
+      if (errEl) { errEl.textContent = ''; errEl.style.display = 'none'; }
+      const dataUrl = await fileToDataUrl(file);
+      q.imageFile    = file;
+      q.imageDataUrl = dataUrl;
+      q.imageRef     = sanitizeFilename(file.name || `${qid}.jpg`);
+      render();
+    });
+
+    document.getElementById('questionsList').addEventListener('click', async (e) => {
+      // Image mode tab switch
+      const imgTab = e.target.closest('[data-imgtab]');
+      if (imgTab) {
+        const q = questions.find(q => q.id === imgTab.dataset.qid);
+        if (!q) return;
+        if (imgTab.dataset.imgtab !== 'upload') { q.imageFile = null; q.imageDataUrl = null; q.imageRef = null; }
+        if (imgTab.dataset.imgtab !== 'url')    { q.imageUrl = null; }
+        q.imageMode = imgTab.dataset.imgtab;
+        render();
+        return;
+      }
+
+      // Remove image
+      const removeImg = e.target.closest('[data-removeimg]');
+      if (removeImg) {
+        const q = questions.find(q => q.id === removeImg.dataset.removeimg);
+        if (!q) return;
+        q.imageFile = null; q.imageDataUrl = null; q.imageRef = null;
+        render();
+        return;
+      }
+
+      // Toggle correct
+      const toggleBtn = e.target.closest('.option-correct-toggle');
+      if (toggleBtn) {
+        const q = questions.find(q => q.id === toggleBtn.dataset.qid);
+        if (!q) return;
+        const oid = toggleBtn.dataset.oid;
+        if (q.correctIds.includes(oid)) q.correctIds = q.correctIds.filter(id => id !== oid);
+        else q.correctIds.push(oid);
+        render();
+        return;
+      }
+
+      // Remove option
+      const removeBtn = e.target.closest('.remove-question-btn');
+      if (removeBtn) {
+        if (removeBtn.dataset.deloi !== undefined && removeBtn.dataset.deloi !== '') {
+          const q = questions.find(q => q.id === removeBtn.dataset.qid);
+          if (!q || q.options.length <= 2) return;
+          const oi = parseInt(removeBtn.dataset.deloi);
+          const removedId = q.options[oi].id;
+          q.options.splice(oi, 1);
+          q.correctIds = q.correctIds.filter(id => id !== removedId);
+          render();
+          return;
+        }
+        if (removeBtn.dataset.qid) {
+          questions = questions.filter(q => q.id !== removeBtn.dataset.qid);
+          render();
+          return;
+        }
+      }
+
+      // Add option
+      const addOptBtn = e.target.closest('[data-addopt]');
+      if (addOptBtn) {
+        const q = questions.find(q => q.id === addOptBtn.dataset.addopt);
+        if (!q || q.options.length >= 4) return;
+        q.options.push({ id: 'opt' + (++qCounter), label: '' });
+        render();
+        return;
+      }
+    });
+
+    // ── Add question ──────────────────────────────────────────────
+    document.getElementById('addQuestionBtn').addEventListener('click', () => {
+      if (questions.length >= MAX_QUESTIONS) {
+        document.getElementById('buildMsg').textContent = `⚠ Maximum ${MAX_QUESTIONS} questions reached.`;
+        return;
+      }
+      const defaultTime = parseInt(document.getElementById('defaultTime').value) || 20;
+      const q = {
+        id: 'q' + (++qCounter),
+        text: '',
+        imageMode: 'none',
+        imageUrl:  null,
+        imageRef:  null,
+        imageFile: null,
+        imageDataUrl: null,
+        timeLimitSeconds: defaultTime,
+        options: [
+          { id: 'opt' + (++qCounter), label: '' },
+          { id: 'opt' + (++qCounter), label: '' },
+        ],
+        correctIds: [],
+      };
+      questions.push(q);
+      render();
+      setTimeout(() => {
+        const els = document.querySelectorAll('.question-editor');
+        els[els.length - 1]?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 50);
+    });
+
+    // ── Validate & build JSON metadata ────────────────────────────
+    function buildPayloadMeta() {
+      const title = document.getElementById('quizTitle').value.trim();
+      const defaultTime = parseInt(document.getElementById('defaultTime').value) || 20;
+      const shuffle = document.getElementById('shuffleToggle').checked;
+      const msg = document.getElementById('buildMsg');
+      msg.textContent = '';
+
+      if (!title) { msg.textContent = '⚠ Give your quiz a title.'; return null; }
+      if (questions.length === 0) { msg.textContent = '⚠ Add at least one question.'; return null; }
+
+      for (let i = 0; i < questions.length; i++) {
+        const q = questions[i];
+        if (!q.text.trim()) { msg.textContent = `⚠ Question ${i+1} needs text.`; return null; }
+        if (q.options.some(o => !o.label.trim())) { msg.textContent = `⚠ Question ${i+1} has a blank option.`; return null; }
+        if (q.correctIds.length === 0) { msg.textContent = `⚠ Question ${i+1} needs a correct answer.`; return null; }
+      }
+
+      return {
+        title,
+        defaultTimeLimitSeconds: defaultTime,
+        shuffleQuestions: shuffle,
+        questions: questions.map(q => {
+          const qOut = {
+            id: q.id,
+            text: q.text.trim(),
+            timeLimitSeconds: q.timeLimitSeconds,
+            options: q.options.map((o, i) => ({
+              id: o.id,
+              label: o.label.trim(),
+              shape: SHAPES[i],
+              color: OPT_COLORS[i],
+            })),
+            correctOptionIds: q.correctIds,
+          };
+          if (q.imageMode === 'url' && q.imageUrl)          qOut.imageUrl = q.imageUrl;
+          else if (q.imageMode === 'upload' && q.imageRef)  qOut.imageRef = q.imageRef;
+          return qOut;
+        }),
+      };
+    }
+
+    // ── Download .questron (ZIP with embedded images) ─────────────
+    document.getElementById('downloadQuestronBtn').addEventListener('click', async () => {
+      const meta = buildPayloadMeta();
+      if (!meta) return;
+      try {
+        await ensureJSZip();
+      } catch {
+        document.getElementById('buildMsg').textContent = '⚠ Could not load JSZip. Check internet connection.';
+        return;
+      }
+      const zip = new JSZip();
+      zip.file('manifest.json', JSON.stringify({ version: 1, created: new Date().toISOString(), tool: 'questron-builder/1.0' }, null, 2));
+      const imgFolder = zip.folder('images');
+      for (const q of questions) {
+        if (q.imageMode === 'upload' && q.imageFile && q.imageRef) {
+          imgFolder.file(q.imageRef, q.imageFile);
+        }
+      }
+      zip.file('quiz.json', JSON.stringify(meta, null, 2));
+      const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE', compressionOptions: { level: 6 } });
+      if (blob.size > 8 * 1024 * 1024) {
+        if (!confirm(`Warning: This file is ${(blob.size/1024/1024).toFixed(1)} MB — large quizzes may load slowly. Continue?`)) return;
+      }
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = (meta.title.replace(/\s+/g,'_').slice(0,40) || 'quiz') + '.questron';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    // ── Download .json only (URL-based, no embedded images) ──────
+    document.getElementById('downloadJsonBtn').addEventListener('click', () => {
+      const meta = buildPayloadMeta();
+      if (!meta) return;
+      const hasUploads = questions.some(q => q.imageMode === 'upload' && q.imageDataUrl);
+      if (hasUploads) {
+        if (!confirm('Some questions have uploaded images — those will be excluded from the .json. Use "Download .questron" to include them. Continue?')) return;
+        meta.questions = meta.questions.map(({ imageRef, ...rest }) => rest);
+      }
+      const blob = new Blob([JSON.stringify(meta, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = (meta.title.replace(/\s+/g,'_').slice(0,40) || 'quiz') + '.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+
+    // ── Host Now ──────────────────────────────────────────────
+    document.getElementById('hostNowBtn').addEventListener('click', () => {
+      const meta = buildPayloadMeta();
+      if (!meta) return;
+      sessionStorage.setItem('questron_quiz_payload', JSON.stringify(meta));
+      window.location.href = '/host?from=builder';
+    });
+
+    // ── Preview JSON ──────────────────────────────────────────────
+    document.getElementById('previewBtn').addEventListener('click', () => {
+      const meta = buildPayloadMeta();
+      const pre  = document.getElementById('jsonPreview');
+      if (!meta) { pre.classList.add('hidden'); return; }
+      pre.textContent = JSON.stringify(meta, null, 2);
+      pre.classList.toggle('hidden');
+    });
+
+    // ── Load .json or .questron ───────────────────────────────────
+    document.getElementById('loadFile').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const msg = document.getElementById('buildMsg');
+      msg.textContent = '';
+      try {
+        if (file.name.endsWith('.questron')) await loadQuestron(file);
+        else await loadJson(file);
+      } catch (err) {
+        msg.textContent = `⚠ Could not load file: ${err.message || err}`;
+      }
+      e.target.value = '';
+    });
+
+    async function loadJson(file) {
+      const text = await file.text();
+      const data = JSON.parse(text);
+      populateFromQuizData(data, new Map());
+    }
+
+    async function loadQuestron(file) {
+      await ensureJSZip();
+      const buf = await file.arrayBuffer();
+      const zip = await JSZip.loadAsync(buf);
+
+      // ZIP bomb guard: check sum of declared uncompressed sizes
+      let totalUncompressed = 0;
+      for (const entry of Object.values(zip.files)) {
+        totalUncompressed += (entry._data?.uncompressedSize ?? 0);
+        if (totalUncompressed > 20 * 1024 * 1024) throw new Error('File too large (max 20 MB uncompressed).');
+      }
+
+      const quizEntry = zip.file('quiz.json');
+      if (!quizEntry) throw new Error('No quiz.json found inside this .questron file.');
+      const data = JSON.parse(await quizEntry.async('text'));
+
+      // Extract images with security validation
+      const imageMap = new Map(); // filename → { dataUrl, blob, mime }
+      for (const [name, entry] of Object.entries(zip.files)) {
+        if (!name.startsWith('images/') || entry.dir) continue;
+        const filename = name.slice('images/'.length);
+        // Path traversal guard — must be a plain filename
+        if (!filename || filename.includes('/') || filename.includes('\\') || filename.includes('..')) continue;
+        const imgBuf = await entry.async('arraybuffer');
+        if (imgBuf.byteLength > MAX_IMAGE_BYTES) continue; // skip oversized
+        const b = new Uint8Array(imgBuf.slice(0, 12));
+        let mime = null;
+        if (b[0]===0xFF && b[1]===0xD8) mime = 'image/jpeg';
+        else if (b[0]===0x89 && b[1]===0x50 && b[2]===0x4E && b[3]===0x47) mime = 'image/png';
+        else if (b[0]===0x47 && b[1]===0x49 && b[2]===0x46) mime = 'image/gif';
+        else if (b[0]===0x52 && b[1]===0x49 && b[2]===0x46 && b[3]===0x46 &&
+                 b[8]===0x57 && b[9]===0x45 && b[10]===0x42 && b[11]===0x50) mime = 'image/webp';
+        if (!mime) continue;
+        const blob    = new Blob([imgBuf], { type: mime });
+        const dataUrl = await fileToDataUrl(blob);
+        imageMap.set(filename, { dataUrl, blob, mime });
+      }
+      populateFromQuizData(data, imageMap);
+    }
+
+    function populateFromQuizData(data, imageMap) {
+      document.getElementById('quizTitle').value  = data.title || '';
+      document.getElementById('defaultTime').value = data.defaultTimeLimitSeconds || 20;
+      document.getElementById('shuffleToggle').checked = data.shuffleQuestions !== false;
+      questions = (data.questions || []).map(q => {
+        const base = {
+          id: q.id || 'q' + (++qCounter),
+          text: q.text || '',
+          timeLimitSeconds: q.timeLimitSeconds || 20,
+          options:   (q.options || []).map(o => ({ id: o.id, label: o.label })),
+          correctIds: q.correctOptionIds || [],
+          imageMode: 'none',
+          imageUrl:  null,
+          imageRef:  null,
+          imageFile: null,
+          imageDataUrl: null,
+        };
+        if (q.imageRef && imageMap.has(q.imageRef)) {
+          const img = imageMap.get(q.imageRef);
+          base.imageMode    = 'upload';
+          base.imageRef     = q.imageRef;
+          base.imageDataUrl = img.dataUrl;
+          base.imageFile    = new File([img.blob], q.imageRef, { type: img.mime });
+        } else if (q.imageUrl) {
+          base.imageMode = 'url';
+          base.imageUrl  = q.imageUrl;
+        }
+        return base;
+      });
+      render();
+      document.getElementById('buildMsg').textContent = '';
+    }
+
+    // ── Initial state ─────────────────────────────────────────────
+    render();
+  </script>
+</body>
+</html>

@@ -1,305 +1,447 @@
 // public/player.js
-const socket = io();
-const byId = id => document.getElementById(id);
-// Utility to get element by ID
+const socket = createSocket();
+const $  = id => document.getElementById(id);
+
+// ── Sound toggle ─────────────────────────────────────────────
+const sound = initSoundToggle();
+
+// ── Element refs ─────────────────────────────────────────────
 const el = {
-  join: byId('join'),
-  name: byId('name'),
-  joinBtn: byId('joinBtn'),
-  joinMsg: byId('joinMsg'),
-  waiting: byId('waiting'),
-  waitingGame: byId('waitingGame'),
-  play: byId('play'),
-  qText: byId('qText'),
-  qImage: byId('qImage'),
-  answers: byId('answers'),
-  qIndex: byId('qIndex'),
-  qTotal: byId('qTotal'),
-  status: byId('status'),
-  timer: null, 
-  music: byId('music'),
-  reveal: byId('reveal'),
-  leaderboard: byId('leaderboard'),
-  board: byId('board'),
-  over: byId('over'),
-  finalBoard: byId('finalBoard'),
-  backToJoinBtn: document.getElementById('backToJoinBtn')
+  screenJoin:        $('screenJoin'),
+  screenWaiting:     $('screenWaiting'),
+  screenPlay:        $('screenPlay'),
+  screenLeaderboard: $('screenLeaderboard'),
+  screenOver:        $('screenOver'),
+
+  joinGameBadge:     $('joinGameBadge'),
+  nameInput:         $('nameInput'),
+  joinBtn:           $('joinBtn'),
+  joinMsg:           $('joinMsg'),
+
+  waitingName:       $('waitingName'),
+  waitingHeading:    $('waitingHeading'),
+  waitingGameTitle:  $('waitingGameTitle'),
+
+  qText:             $('qText'),
+  qImage:            $('qImage'),
+  qIndex:            $('qIndex'),
+  qTotal:            $('qTotal'),
+  answers:           $('answers'),
+  playerProgressBar: $('playerProgressBar'),
+  lockedState:       $('lockedState'),
+  lockedChoiceLabel: $('lockedChoiceLabel'),
+  feedbackPanel:     $('feedbackPanel'),
+  feedbackIcon:      $('feedbackIcon'),
+  feedbackDelta:     $('feedbackDelta'),
+  feedbackLabel:     $('feedbackLabel'),
+  feedbackStreak:    $('feedbackStreak'),
+  rankBadge:         $('rankBadge'),
+  reactionBar:       $('reactionBar'),
+  music:             $('music'),
+  revealAudio:       $('revealAudio'),
+
+  board:             $('board'),
+  podiumWrap:        $('podiumWrap'),
+  finalBoard:        $('finalBoard'),
+  backToJoinBtn:     $('backToJoinBtn'),
+  endAudio:          $('endAudio'),
 };
 
-// Global answer styles (color and shape)
-const GLOBAL_ANSWER_STYLES = [
-  { color: 'red',    shape: '■' },
-  { color: 'blue',   shape: '♦' },
-  { color: 'yellow', shape: '●' },
-  { color: 'green',  shape: '▲' }
-];
+// ── State ─────────────────────────────────────────────────────
+const params          = new URLSearchParams(location.search);
+const gameId          = params.get('game');
+const nameFromJoin    = params.get('name');  // passed from join.html
+let   myName          = nameFromJoin || '';
+let   currentQId      = null;
+let   lockedOptionId  = null;
+let   stopTimer       = null;
+let   myRank          = null;
+let   prevLeaderboard = [];
+let   wasKicked       = false;  // prevents auto-rejoin after being removed
+let   rejoinToken     = null;
 
-// Get game ID from URL
-const params = new URLSearchParams(location.search);
-const gameId = params.get('game');
-let currentQuestionId = null;
-let lockedOptionId = null;
+// ── Screen management ─────────────────────────────────────────
+function showOnly(screenEl) {
+  [el.screenJoin, el.screenWaiting, el.screenPlay,
+   el.screenLeaderboard, el.screenOver]
+    .forEach(s => s.classList.add('hidden'));
+  screenEl.classList.remove('hidden');
+}
+// ── Rejoin / sessionStorage ────────────────────────────────────────
+function saveSession(gId, name) {
+  try { sessionStorage.setItem('nq_session', JSON.stringify({ gameId: gId, name, rejoinToken })); } catch {}
+}
+function clearSession() {
+  try { sessionStorage.removeItem('nq_session'); } catch {}
+}
+function loadSession() {
+  try { return JSON.parse(sessionStorage.getItem('nq_session') || 'null'); } catch { return null; }
+}
+// Restore rejoin token from previous session (survives page refresh)
+const _savedSession = loadSession();
+if (_savedSession && _savedSession.gameId === gameId && _savedSession.rejoinToken) {
+  rejoinToken = _savedSession.rejoinToken;
+}
 
-// Handle join button
+// On reconnect, try to rejoin automatically
+socket.on('connect', () => {
+  if (wasKicked) return;  // don't auto-rejoin after being kicked
+  if (myName && gameId) {
+    socket.emit('player:join', { gameId, name: myName, rejoinToken }, (res) => {
+      if (!res?.ok) {
+        el.joinMsg.textContent = res?.error || 'Unable to join.';
+        el.joinBtn.disabled = false;
+        showOnly(el.screenJoin);
+        return;
+      }
+      if (res.reconnected) {
+        el.waitingHeading && (el.waitingHeading.textContent = "You're back!");
+      }
+      if (res.rejoinToken) rejoinToken = res.rejoinToken;
+      saveSession(gameId, myName);
+      el.waitingName.textContent = myName;
+      el.waitingGameTitle.textContent = res.title
+        ? `"${res.title}"${res.questionCount ? ` · ${res.questionCount} questions` : ''}`
+        : '';
+      showOnly(el.screenWaiting);
+    });
+  }
+});
+// ── Pre-fill from URL params ──────────────────────────────────
+if (gameId) {
+  el.joinGameBadge.textContent = `ROOM · ${gameId}`;
+}
+if (nameFromJoin) {
+  el.nameInput.value = nameFromJoin;
+  // Came from join.html with name already provided — skip straight to waiting
+    if (gameId) {
+      el.waitingName.textContent = nameFromJoin;
+      showOnly(el.screenWaiting);
+    }
+} else if (gameId) {
+  // Direct URL with game ID but no name — show name entry screen
+  showOnly(el.screenJoin);
+}
+
+// ── Join flow ─────────────────────────────────────────────────
+el.nameInput.addEventListener('input', () => { el.joinMsg.textContent = ''; });
+el.nameInput.addEventListener('keydown', e => { if (e.key === 'Enter') el.joinBtn.click(); });
+
 el.joinBtn.addEventListener('click', () => {
-  const name = el.name.value.trim();
+  const name = el.nameInput.value.trim();
   if (!name) {
-    el.joinMsg.textContent = 'Enter a name.';
+    el.joinMsg.textContent = 'Please enter a name.';
     return;
   }
-  socket.emit('player:join', { gameId, name }, (res) => {
+  if (!gameId) {
+    el.joinMsg.textContent = 'No room code found — go back to join page.';
+    return;
+  }
+  el.joinBtn.disabled = true;
+  socket.emit('player:join', { gameId, name, rejoinToken }, (res) => {
     if (!res?.ok) {
       el.joinMsg.textContent = res?.error || 'Unable to join.';
+      el.joinBtn.disabled = false;
       return;
     }
-    el.join.classList.add('hidden');
-    el.waiting.classList.remove('hidden');
-    el.waitingGame.textContent = `Game ID: ${gameId}`;
+    myName = name;
+    if (res.rejoinToken) rejoinToken = res.rejoinToken;
+    saveSession(gameId, name);
+    el.waitingName.textContent   = name;
+    el.waitingGameTitle.textContent = res.title
+      ? `"${res.title}"${res.questionCount ? ` · ${res.questionCount} questions` : ''}`
+      : '';
+    showOnly(el.screenWaiting);
   });
 });
 
-// Add timer element after status in the DOM (if not present)
-if (!document.getElementById('timer')) {
-  const timerDiv = document.createElement('div');
-  timerDiv.id = 'timer';
-  timerDiv.className = 'muted';
-  el.status.parentNode.insertBefore(timerDiv, el.status.nextSibling);
-  el.timer = timerDiv;
-} else {
-  el.timer = document.getElementById('timer');
-}
-
-// Countdown timer functions
-function startCountdown(seconds) {
-  clearCountdown();
-  countdownEndTime = Date.now() + seconds * 1000;
-  updateCountdown();
-  countdownInterval = setInterval(updateCountdown, 200);
-}
-
-// Update countdown display
-function updateCountdown() {
-  if (!countdownEndTime) return;
-  const msLeft = countdownEndTime - Date.now();
-  const secLeft = Math.max(0, Math.ceil(msLeft / 1000));
-  el.timer.textContent = `Time left: ${secLeft}s`;
-  if (msLeft <= 0) {
-    clearCountdown();
-  }
-}
-
-let countdownInterval = null;
-let countdownEndTime = null;
-
-// Clear countdown
-function clearCountdown() {
-  if (countdownInterval) clearInterval(countdownInterval);
-  countdownInterval = null;
-  el.timer.textContent = '';
-  countdownEndTime = null;
-}
-
-// Game started
+// ── Game started ──────────────────────────────────────────────
 socket.on('game:started', () => {
-  el.waiting.classList.add('hidden');
-  el.leaderboard.classList.add('hidden'); // ensure hidden at start
-  el.over.classList.add('hidden');
-  el.play.classList.remove('hidden');
+  showOnly(el.screenPlay);
 });
 
-// Shuffle array utility
-function shuffleArray(arr) {
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
-// New question
+// ── Question display ──────────────────────────────────────────
 socket.on('question:show', (q) => {
-  // Reset UI
-  currentQuestionId = q.id;
+  stopTimer?.();
+  currentQId   = q.id;
   lockedOptionId = null;
-  el.status.textContent = '';
 
-  // Hide leaderboard during question phase
-  el.leaderboard.classList.add('hidden'); // ensure leaderboard is hidden at start of question
-
-  el.qText.textContent = q.text;
-  el.qIndex.textContent = (q.index + 1);
+  // Progress bar
+  const pct = ((q.index) / q.total) * 100;
+  el.playerProgressBar.style.width = pct + '%';
+  el.qIndex.textContent = q.index + 1;
   el.qTotal.textContent = q.total;
+  el.qText.textContent  = q.text;
 
-  if (q.imageUrl) {
-    el.qImage.src = q.imageUrl;
+  if (q.imageData || q.imageUrl) {
+    el.qImage.src = q.imageData || q.imageUrl;
     el.qImage.classList.remove('hidden');
+    el.qImage.onerror = () => el.qImage.classList.add('hidden');
   } else {
     el.qImage.classList.add('hidden');
   }
 
-  el.answers.innerHTML = '';
-  // Assign global color/shape (do NOT randomize order)
-  let options = q.options.map((opt, idx) => ({
-    ...opt,
-    color: GLOBAL_ANSWER_STYLES[idx % GLOBAL_ANSWER_STYLES.length].color,
-    shape: GLOBAL_ANSWER_STYLES[idx % GLOBAL_ANSWER_STYLES.length].shape
-  }));
-  // Do NOT shuffle options
-  window._lastOptionIdOrder = options.map(opt => opt.id);
+  // Reset rank badge (will update after next leaderboard)
+  el.rankBadge.style.display = 'none';
+  if (myRank !== null) {
+    el.rankBadge.textContent = myRank <= 3 ? ['#01','#02','#03'][myRank - 1] : `#${String(myRank).padStart(2,'0')}`;
+    el.rankBadge.className  = `rank-badge${myRank <= 3 ? ' rank-top' : ''}`;
+    el.rankBadge.style.display = 'inline-flex';
+  }
 
-  options.forEach(opt => {
+  el.reactionBar.style.display = 'flex';
+
+  // Reset feedback + locked
+  el.lockedState.classList.add('hidden');
+  el.feedbackPanel.classList.add('hidden');
+  if (el.feedbackStreak) el.feedbackStreak.classList.add('hidden');
+  el.answers.classList.remove('hidden');
+
+  // Build answer buttons
+  el.answers.innerHTML = '';
+  q.options.forEach((opt, idx) => {
+    const s = ANSWER_STYLES[idx % ANSWER_STYLES.length];
     const btn = document.createElement('button');
-    btn.className = `answer ${opt.color}`;
-    btn.innerHTML = `<span class="shape">${opt.shape}</span> <span class="label">${opt.label}</span>`;
-    btn.dataset.id = opt.id; // assign option id for later lookup
+    btn.className  = `answer ${s.color}`;
+    btn.dataset.id = opt.id;
+    btn.innerHTML  =
+      `<span class="answer-fill-bar"></span>` +
+      `<span class="shape">${s.shape}</span>` +
+      `<span class="label">${escHtml(opt.label)}</span>` +
+      `<span class="answer-icon"></span>`;
+
     btn.addEventListener('click', () => {
       if (lockedOptionId) return;
-      lockedOptionId = opt.id;
-      socket.emit('player:answer', { gameId, questionId: currentQuestionId, optionId: opt.id });
-      // Provide immediate “locked” feedback
-      [...el.answers.children].forEach(b => b.disabled = true);
-      btn.classList.add('locked');
-      el.status.textContent = 'Answer locked. Waiting…';
+      selectAnswer(q.id, opt.id, opt.label, s.color);
     });
+
+    // 3D tilt
+    btn.addEventListener('mousemove', e => {
+      if (lockedOptionId) return;
+      const r = btn.getBoundingClientRect();
+      const x = (e.clientX - r.left) / r.width  - 0.5;
+      const y = (e.clientY - r.top)  / r.height - 0.5;
+      btn.style.setProperty('--ry', ( x * 14) + 'deg');
+      btn.style.setProperty('--rx', (-y * 10) + 'deg');
+    });
+    btn.addEventListener('mouseleave', () => {
+      btn.style.setProperty('--rx', '0deg');
+      btn.style.setProperty('--ry', '0deg');
+    });
+
     el.answers.appendChild(btn);
   });
 
-  // Start music
+  showOnly(el.screenPlay);
+
+  // Timer
+  stopTimer = startTimerRing('playerTimerWrap', q.timeLimitSeconds);
+
+  // Music
   try { el.music.currentTime = 0; el.music.play(); } catch {}
-
-  clearCountdown();
-  if (q.timeLimitSeconds) startCountdown(q.timeLimitSeconds);
 });
 
-// Question reveal
-socket.on('question:reveal', ({ correctOptionIds, leaderboard, counts }) => {
-  // Stop music, play reveal
-  try { el.music.pause(); } catch {}
-  try { el.reveal.currentTime = 0; el.reveal.play(); } catch {}
+// ── Player selects answer ─────────────────────────────────────
+function selectAnswer(qId, optionId, optionLabel, colorClass) {
+  lockedOptionId = optionId;
 
-  // Ensure all ids are strings for comparison
-  const correctIds = (correctOptionIds || []).map(String);
-  const lockedId = lockedOptionId ? String(lockedOptionId) : null;
-  const gotCorrect = lockedId && correctIds.includes(lockedId);
-
-  document.body.classList.toggle('correct-bg', !!gotCorrect);
-  document.body.classList.toggle('wrong-bg', lockedOptionId && !gotCorrect);
-
-  el.status.textContent = '';
-
-  // Map optionId to count for correct badge placement
-  let optionIdToCount = {};
-  if (Array.isArray(counts) && el.answers.children.length === counts.length) {
-    [...el.answers.children].forEach((btn, idx) => {
-      optionIdToCount[btn.dataset.id] = 0;
-    });
-
-    if (window._lastOptionIdOrder && Array.isArray(counts)) {
-      window._lastOptionIdOrder.forEach((optionId, idx) => {
-        optionIdToCount[optionId] = counts[idx] || 0;
-      });
-    }
-  }
-
-  [...el.answers.children].forEach((btn, idx) => {
-    const optId = String(btn.dataset.id);
-    btn.classList.remove('correct', 'wrong', 'player-correct', 'player-wrong', 'player-reveal-correct');
-    if (gotCorrect) {
-      if (correctIds.includes(optId)) {
-        btn.classList.add('player-correct');
-      } else {
-        btn.classList.add('wrong');
-      }
-    } else {
-      if (lockedId && optId === lockedId && !correctIds.includes(optId)) {
-        btn.classList.add('wrong');
-      }
-      if (correctIds.includes(optId)) {
-        btn.classList.add('player-reveal-correct');
-      } else if (optId !== lockedId) {
-        btn.classList.add('wrong');
-      }
-    }
-    // Add count badge (use correct mapping)
-    if (optionIdToCount && optId in optionIdToCount) {
-      let count = optionIdToCount[optId] || 0;
-      let badge = btn.querySelector('.answer-count-badge');
-      if (badge) badge.remove();
-      const badgeEl = document.createElement('span');
-      badgeEl.className = 'answer-count-badge';
-      badgeEl.textContent = count;
-      badgeEl.style.cssText = 'margin-left:8px;background:#222;color:#fff;border-radius:10px;padding:2px 8px;font-size:0.95em;';
-      btn.appendChild(badgeEl);
-    }
+  // Disable all, mark locked
+  [...el.answers.children].forEach(btn => {
+    btn.disabled = true;
+    if (btn.dataset.id === optionId) btn.classList.add('locked');
+    else btn.style.opacity = '0.4';
   });
 
-  // Leaderboard
-  el.board.innerHTML = '';
-  leaderboard.forEach((p, i) => {
-    const li = document.createElement('li');
-    // Show score and delta if delta > 0
-    let scoreText = `${p.name} - ${p.score.toLocaleString()}`;
-    if (typeof p.delta === 'number' && p.delta > 0) {
-      scoreText += ` (+${p.delta})`;
-    }
-    li.textContent = scoreText;
-    if (p.lastCorrect) li.classList.add('correctish');
-    el.board.appendChild(li);
-  });
-  el.leaderboard.classList.remove('hidden'); // ensure leaderboard is shown on reveal
+  // Show locked overlay
+  el.lockedChoiceLabel.textContent = optionLabel;
+  el.lockedChoiceLabel.style.background = `var(--${colorClass.replace('opt-', 'opt-')})`
+    + '-dim)'.replace('--opt-a-dim)', '') ;  // just use class
+  el.lockedChoiceLabel.className = `locked-badge answer ${colorClass}`;
+  el.lockedChoiceLabel.style.cssText = ''; // clear inline
+  el.lockedState.classList.remove('hidden');
+  el.answers.classList.add('hidden');
 
-  // Fade feedback after short delay
-  setTimeout(() => {
-    document.body.classList.remove('correct-bg', 'wrong-bg');
-  }, 4500);
-
-  clearCountdown();
-});
-
-// Game Over
-socket.on('game:over', ({ leaderboard }) => {
-  el.play.classList.add('hidden');
-  el.leaderboard.classList.add('hidden');
-  el.over.classList.remove('hidden');
-  el.finalBoard.innerHTML = '';
-  leaderboard.forEach((p, i) => {
-    const li = document.createElement('li');
-    // Show score and delta if delta > 0
-    let scoreText = `#${i + 1} ${p.name} — ${p.score.toLocaleString()}`;
-    if (typeof p.delta === 'number' && p.delta > 0) {
-      scoreText += ` (+${p.delta})`;
-    }
-    li.textContent = scoreText;
-    el.finalBoard.appendChild(li);
-  });
-
-  // Play end sound effect
-  const endAudio = document.getElementById('end');
-  if (endAudio) {
-    try { endAudio.currentTime = 0; endAudio.play(); } catch {}
-  }
-
-  clearCountdown();
-});
-
-if (el.backToJoinBtn) {
-  el.backToJoinBtn.addEventListener('click', () => {
-    window.location.href = '/join.html';
-  });
+  socket.emit('player:answer', { gameId, questionId: qId, optionId });
 }
 
-const origAddEventListener = EventTarget.prototype.addEventListener;
-
-socket.on('game:over', ({ leaderboard }) => {
-  el.play.classList.add('hidden');
-  el.leaderboard.classList.add('hidden');
-  el.over.classList.remove('hidden');
-  el.finalBoard.innerHTML = '';
-  leaderboard.forEach((p, i) => {
-    const li = document.createElement('li');
-    li.textContent = `#${i + 1} ${p.name} — ${p.score}`;
-    el.finalBoard.appendChild(li);
-  });
+// ── Server confirm locked ─────────────────────────────────────
+socket.on('player:locked', () => {
+  // Already handled UI-side, no action needed
 });
 
+// ── Game paused / resumed ─────────────────────────────────────
+socket.on('game:paused', () => {
+  stopTimer?.();
+  // Disable answer buttons so players can't submit while paused
+  if (!lockedOptionId) {
+    [...el.answers.children].forEach(btn => btn.disabled = true);
+  }
+  // Show pause banner
+  if (!document.getElementById('playerPauseBanner')) {
+    const banner = document.createElement('div');
+    banner.id = 'playerPauseBanner';
+    banner.className = 'paused-banner';
+    banner.innerHTML = '<span class="paused-banner-inner">⏸ Game Paused · Timers stopped · ⏸ Game Paused · Timers stopped · </span>';
+    document.body.prepend(banner);
+  }
+});
+
+socket.on('game:resumed', ({ msRemaining }) => {
+  document.getElementById('playerPauseBanner')?.remove();
+  if (!lockedOptionId) {
+    [...el.answers.children].forEach(btn => btn.disabled = false);
+    stopTimer = startTimerRing('playerTimerWrap', msRemaining / 1000);
+  }
+});
+
+// ── Question reveal ───────────────────────────────────────────
+socket.on('question:reveal', ({ correctOptionIds, leaderboard, counts }) => {
+  stopTimer?.();
+  document.getElementById('playerPauseBanner')?.remove();
+  try { el.music.pause(); } catch {}
+  try { el.revealAudio.currentTime = 0; el.revealAudio.play(); } catch {}
+
+  const correctIds = (correctOptionIds || []).map(String);
+  const lockedId   = lockedOptionId ? String(lockedOptionId) : null;
+  const gotCorrect = lockedId && correctIds.includes(lockedId);
+  const answered   = !!lockedId;
+
+  // Show answers for reveal
+  el.answers.classList.remove('hidden');
+  el.lockedState.classList.add('hidden');
+
+  // Style each button
+  const allBtns = [...el.answers.children];
+  const optOrder = allBtns.map(b => b.dataset.id);
+  const countMap = {};
+  optOrder.forEach((id, i) => { countMap[id] = counts?.[i] || 0; });
+
+  allBtns.forEach((btn, idx) => {
+    const optId = String(btn.dataset.id);
+    const isCorrect = correctIds.includes(optId);
+    const isLocked  = optId === lockedId;
+    btn.disabled = true;
+
+    // Count badge added after flip completes
+    setTimeout(() => {
+      const badge = document.createElement('span');
+      badge.className = 'answer-count';
+      badge.textContent = countMap[optId] ?? 0;
+      btn.appendChild(badge);
+    }, idx * 75 + 340);
+
+    if (isCorrect) {
+      if (answered && isLocked) {
+        flipRevealCard(btn, 'player-correct', idx * 75);
+        setTimeout(() => triggerParticleBurst(btn), idx * 75 + 340);
+      } else {
+        flipRevealCard(btn, 'player-reveal-correct', idx * 75);
+      }
+    } else {
+      const wrongClass = (isLocked && !isCorrect) ? 'player-wrong' : 'wrong';
+      flipRevealCard(btn, wrongClass, idx * 75);
+    }
+  });
+
+  // Feedback panel
+  el.feedbackPanel.classList.remove('hidden');
+  if (el.feedbackStreak) el.feedbackStreak.classList.add('hidden');
+  if (!answered) {
+    el.feedbackIcon.textContent  = '⏱';
+    el.feedbackDelta.textContent = '';
+    el.feedbackLabel.textContent = 'Too slow!';
+    el.feedbackLabel.style.color = 'var(--text-subtle)';
+  } else if (gotCorrect) {
+    el.feedbackIcon.textContent  = '✓';
+    el.feedbackIcon.style.color  = 'var(--green)';
+    el.feedbackLabel.textContent = 'Correct!';
+    el.feedbackLabel.style.color = 'var(--green)';
+    // Delta will be shown when leaderboard arrives (find self)
+    const self = leaderboard.find(p => p.name === myName);
+    if (self?.delta > 0) {
+      el.feedbackDelta.textContent = `+${self.delta.toLocaleString()}`;
+      el.feedbackDelta.style.color = 'var(--green)';
+    }
+    // Streak indicator
+    if (el.feedbackStreak) {
+      const streak = self?.streak || 0;
+      if (streak >= 2) {
+        el.feedbackStreak.textContent = `\ud83d\udd25 ${streak} Streak!`;
+        el.feedbackStreak.classList.remove('hidden');
+      } else {
+        el.feedbackStreak.classList.add('hidden');
+      }
+    }
+  } else {
+    el.feedbackIcon.textContent  = '\u2717';
+    el.feedbackIcon.style.color  = 'var(--red)';
+    el.feedbackLabel.textContent = 'Wrong!';
+    el.feedbackLabel.style.color = 'var(--red)';
+    el.feedbackDelta.textContent = '';
+    if (el.feedbackStreak) el.feedbackStreak.classList.add('hidden');
+  }
+
+  // Update leaderboard + rank
+  el.board.innerHTML = buildRaceLeaderboard(leaderboard, prevLeaderboard, myName);
+  prevLeaderboard = [...leaderboard];
+  const selfEntry = leaderboard.findIndex(p => p.name === myName);
+  if (selfEntry >= 0) myRank = selfEntry + 1;
+  el.screenLeaderboard.classList.remove('hidden');
+});
+
+// ── Game over ─────────────────────────────────────────────────
+socket.on('game:over', ({ leaderboard }) => {
+  stopTimer?.();
+  clearSession();
+  el.podiumWrap.innerHTML = buildPodium(leaderboard);
+  el.finalBoard.innerHTML = buildLeaderboard(leaderboard, myName);
+  showOnly(el.screenOver);
+  try { el.endAudio.currentTime = 0; el.endAudio.play(); } catch {}
+  // Confetti if in top 3
+  const rank = leaderboard.findIndex(p => p.name === myName);
+  if (rank >= 0 && rank < 3) launchConfetti();
+});
+
+// ── Cancelled ─────────────────────────────────────────────────
+socket.on('game:cancelled', () => {
+  showOnly(el.screenJoin);
+  el.joinMsg.textContent = 'Game was cancelled by the host.';
+  el.joinBtn.disabled = false;
+});
+
+// ── Kicked by host ────────────────────────────────────────────
+socket.on('player:kicked', () => {
+  wasKicked = true;
+  myName = '';  // clear identity so connect handler won't auto-rejoin
+  showOnly(el.screenJoin);
+  el.joinMsg.textContent = 'You were removed from the game by the host.';
+  el.joinBtn.disabled = false;
+});
+
+// ── Reaction buttons ─────────────────────────────────────────
+el.reactionBar.addEventListener('click', e => {
+  const btn = e.target.closest('.reaction-btn');
+  if (!btn || !gameId) return;
+  const emoji = btn.dataset.emoji;
+  if (!emoji) return;
+  socket.emit('player:react', { gameId, emoji });
+  // Brief visual feedback
+  btn.classList.add('reacted');
+  setTimeout(() => btn.classList.remove('reacted'), 600);
+});
+
+// ── Back to join ──────────────────────────────────────────────
+el.backToJoinBtn.addEventListener('click', () => {
+  window.location.href = '/join';
+});
+
+// ── Connect to game server ───────────────────────────────────
+// Must be called AFTER all .on() listeners are registered so the
+// 'connect' event (which fires on WS open) sees them all.
+if (gameId) {
+  const role = 'player';
+  socket.connect(`${GAME_SERVER_WS}/room/${encodeURIComponent(gameId)}?role=${role}`);
+} else {
+  // No game ID in URL — send back to join page
+  window.location.replace('/join');
+}

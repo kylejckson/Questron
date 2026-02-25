@@ -1,18 +1,27 @@
 {
-  "name": "nanoquiz",
+  "name": "questron",
   "version": "1.0.0",
-  "main": "server.js",
+  "private": true,
+  "description": "Real-time multiplayer quiz platform — questron.app",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js"
+    "dev": "concurrently \"npm run dev:worker\" \"npm run dev:frontend\" --names worker,frontend --prefix-colors cyan,green",
+    "dev:frontend": "npx --yes serve public -p 3000 --no-clipboard",
+    "dev:worker": "cd worker && npx wrangler dev --local --port 8787",
+    "start": "npm run dev",
+    "build:worker": "cd worker && npm install",
+    "deploy:worker": "cd worker && npx wrangler deploy",
+    "type-check": "cd worker && npx tsc --noEmit",
+    "pack:quiz": "node scripts/pack-quiz.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": "",
-  "dependencies": {
-    "express": "^5.1.0",
-    "nanoid": "^5.1.5",
-    "socket.io": "^4.8.1"
+  "dependencies": {},
+  "devDependencies": {
+    "concurrently": "^9.1.2",
+    "jszip": "^3.10.1"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }

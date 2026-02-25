@@ -1,80 +1,172 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Join Game | Quiz</title>
+  <meta name="description" content="Join a Questron game — enter your room code" />
+  <meta name="theme-color" content="#b8ff3c" />
+  <title>Join · Questron</title>
+  <link rel="canonical" href="https://questron.app/join" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://questron.app/join" />
+  <meta property="og:title" content="Join · Questron" />
+  <meta property="og:description" content="Join a Questron game — enter your room code to play." />
+  <meta property="og:image" content="https://questron.app/logo.png" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Join · Questron" />
+  <meta name="twitter:description" content="Join a Questron game — enter your room code to play." />
+  <meta name="twitter:image" content="https://questron.app/logo.png" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="/styles.css" />
-  <style>
-    .join-logo {
-      display: block;
-      margin: 32px auto 24px auto;
-      width: 120px;
-      height: 120px;
-      border-radius: 24px;
-      object-fit: contain;
-    }
-    .join-form {
-      max-width: 340px;
-      margin: 0 auto;
-      display: flex;
-      flex-direction: column;
-      gap: 18px;
-      align-items: stretch;
-    }
-    .join-form input[type="text"] {
-      font-size: 1.2em;
-      padding: 12px;
-      border-radius: 10px;
-      border: 1px solid #2f3566;
-      background: #171a35;
-      color: var(--text);
-      text-align: center;
-      letter-spacing: 2px;
-      font-weight: bold;
-    }
-    .join-form button {
-      font-size: 1.1em;
-    }
-  </style>
 </head>
 <body>
-  <div class="container">
-    <!--Quiz logo below, if you want to add one -->
-    <img src="logo.png" class="join-logo" id="logo" />
-    <form class="join-form" id="joinForm" autocomplete="off">
-      <label for="roomCode">Enter Room Code</label>
-      <input id="roomCode" type="text" maxlength="8" placeholder="1234" required autofocus autocomplete="off" />
-      <button id="joinBtn" class="primary" type="submit">Join</button>
-      <div id="joinMsg" class="muted"></div>
-    </form>
-  </div>
-  <script src="/socket.io/socket.io.js"></script>
-  <script>
-    const form = document.getElementById('joinForm');
-    const input = document.getElementById('roomCode');
-    const msg = document.getElementById('joinMsg');
-    const socket = io();
+  <div class="page-center">
+    <div style="width:100%;max-width:400px;display:flex;flex-direction:column;align-items:center;gap:var(--gap-xl);">
 
-    form.addEventListener('submit', e => {
-      e.preventDefault();
-      const code = input.value.trim().toUpperCase();
-      if (!code) {
-        msg.textContent = 'Please enter a room code.';
-        return;
-      }
-      // Validate game existence before redirect
-      socket.emit('player:join', { gameId: code, name: '_validate_' }, (res) => {
-        if (res && res.ok) {
-          window.location.href = `/player.html?game=${encodeURIComponent(code)}`;
-        } else {
-          msg.textContent = res && res.error ? res.error : 'Room not found or already started.';
+      <!-- Brand -->
+      <div style="text-align:center;">
+        <div class="pulse-logo">
+          <span class="logo-quest">Quest</span>ron<span class="logo-pip"></span>
+        </div>
+        <div class="muted" style="margin-top:4px;font-size:0.9rem;">Enter your room code to play</div>
+      </div>
+
+      <!-- Step 1: code entry -->
+      <div id="stepCode" class="glass" style="width:100%;padding:var(--gap-xl) var(--gap-lg);text-align:center;">
+        <div style="font-family:var(--font-display);font-size:0.85rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-subtle);margin-bottom:var(--gap-lg);">
+          Room Code
+        </div>
+        <div class="code-inputs" id="codeInputs">
+          <input class="code-digit" id="d0" type="text" inputmode="text" maxlength="1" autocomplete="off" style="text-transform:uppercase" />
+          <input class="code-digit" id="d1" type="text" inputmode="text" maxlength="1" autocomplete="off" style="text-transform:uppercase" />
+          <input class="code-digit" id="d2" type="text" inputmode="text" maxlength="1" autocomplete="off" style="text-transform:uppercase" />
+          <input class="code-digit" id="d3" type="text" inputmode="text" maxlength="1" autocomplete="off" style="text-transform:uppercase" />
+          <input class="code-digit" id="d4" type="text" inputmode="text" maxlength="1" autocomplete="off" style="text-transform:uppercase" />
+          <input class="code-digit" id="d5" type="text" inputmode="text" maxlength="1" autocomplete="off" style="text-transform:uppercase" />
+        </div>
+        <div id="codeMsg" class="muted" style="margin-top:var(--gap-md);min-height:1.4em;font-size:0.88rem;"></div>
+      </div>
+
+      <!-- Step 2: name entry (hidden until code validated) -->
+      <div id="stepName" class="glass name-section hidden" style="width:100%;padding:var(--gap-xl) var(--gap-lg);">
+        <div id="gameTitle" style="font-family:var(--font-display);font-weight:700;font-size:1.1rem;text-align:center;margin-bottom:var(--gap-lg);color:var(--spark);"></div>
+        <label style="font-family:var(--font-display);font-size:0.85rem;font-weight:600;letter-spacing:0.05em;text-transform:uppercase;color:var(--text-subtle);display:block;margin-bottom:var(--gap-sm);">
+          Your Name
+        </label>
+        <input class="input" id="nameInput" type="text" maxlength="20"
+          placeholder="Enter your name…" autocomplete="off" />
+        <button class="btn btn-primary btn-lg" id="joinBtn" style="width:100%;margin-top:var(--gap-md);" disabled>
+          Join Game →
+        </button>
+        <div id="nameMsg" class="muted" style="margin-top:var(--gap-sm);min-height:1.4em;font-size:0.88rem;color:var(--red);"></div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <script src="/constants.js"></script>
+  <script>
+    initPulseBackground();
+
+    const digits       = [0,1,2,3,4,5].map(i => document.getElementById('d' + i));
+    const stepCode     = document.getElementById('stepCode');
+    const stepName     = document.getElementById('stepName');
+    const codeMsg      = document.getElementById('codeMsg');
+    const nameMsg      = document.getElementById('nameMsg');
+    const nameInput    = document.getElementById('nameInput');
+    const joinBtn      = document.getElementById('joinBtn');
+    const gameTitleEl  = document.getElementById('gameTitle');
+    let validatedGameId = null;
+
+    // ── Digit input flow ──────────────────────────────────
+    digits.forEach((input, i) => {
+      input.addEventListener('focus', () => input.select());
+
+      input.addEventListener('input', () => {
+        const v = input.value.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+        input.value = v.slice(-1);
+        input.classList.toggle('filled', !!input.value);
+        codeMsg.textContent = '';
+        if (input.value && i < digits.length - 1) digits[i + 1].focus();
+        if (digits.every(d => d.value)) validateCode();
+      });
+
+      input.addEventListener('keydown', e => {
+        if (e.key === 'Backspace' && !input.value && i > 0) {
+          digits[i - 1].focus();
+          digits[i - 1].value = '';
+          digits[i - 1].classList.remove('filled');
         }
       });
+
+      input.addEventListener('paste', e => {
+        e.preventDefault();
+        const paste = e.clipboardData.getData('text').replace(/[^A-Za-z0-9]/g,'').toUpperCase().slice(0,6);
+        paste.split('').forEach((ch, j) => {
+          if (digits[j]) { digits[j].value = ch; digits[j].classList.add('filled'); }
+        });
+        const next = Math.min(paste.length, digits.length - 1);
+        digits[next].focus();
+        if (paste.length === 4) validateCode();
+      });
     });
-    input.addEventListener('input', () => {
-      msg.textContent = '';
+
+    digits[0].focus();
+
+    // ── Validate code via /api/exists ──────────────────────
+    async function validateCode() {
+      const code = digits.map(d => d.value).join('').toUpperCase();
+      if (code.length < 6) return;
+      codeMsg.style.color = '';
+      codeMsg.textContent = 'Checking…';
+
+      try {
+        const res  = await fetch(`${GAME_SERVER_URL}/api/exists/${code}`);
+        const data = await res.json();
+
+        if (data.ok) {
+          validatedGameId = code;
+          gameTitleEl.textContent = data.title || 'Quiz';
+          stepName.classList.remove('hidden');
+          codeMsg.textContent = '';
+          setTimeout(() => nameInput.focus(), 80);
+        } else {
+          digits.forEach(d => d.classList.add('error'));
+          codeMsg.style.color = 'var(--red)';
+          codeMsg.textContent = data.error || 'Room not found or already started.';
+          setTimeout(() => {
+            digits.forEach(d => { d.classList.remove('error'); d.value = ''; d.classList.remove('filled'); });
+            stepName.classList.add('hidden');
+            digits[0].focus();
+          }, 900);
+        }
+      } catch {
+        codeMsg.style.color = 'var(--red)';
+        codeMsg.textContent = 'Cannot reach game server. Is it running?';
+      }
+    }
+
+    // ── Name input → enable join ───────────────────────────
+    nameInput.addEventListener('input', () => {
+      joinBtn.disabled = nameInput.value.trim().length === 0;
+      nameMsg.textContent = '';
     });
+
+    nameInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !joinBtn.disabled) joinGame();
+    });
+
+    joinBtn.addEventListener('click', joinGame);
+
+    function joinGame() {
+      const name = nameInput.value.trim();
+      if (!name || !validatedGameId) return;
+      // Redirect to player — use clean URL so serve doesn't strip query params
+      window.location.href = `/player?game=${encodeURIComponent(validatedGameId)}&name=${encodeURIComponent(name)}`;
+    }
   </script>
 </body>
 </html>

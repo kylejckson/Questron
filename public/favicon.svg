@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="qgrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#b8ff3c"/>
+      <stop offset="100%" stop-color="#00e8a0"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="2.5" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <!-- Dark background -->
+  <rect width="64" height="64" rx="14" fill="#0a0a0a"/>
+  <!-- Subtle inner border -->
+  <rect x="1" y="1" width="62" height="62" rx="13" fill="none" stroke="rgba(184,255,60,0.15)" stroke-width="1.5"/>
+  <!-- Q glyph with lime-to-mint gradient and glow -->
+  <text x="31" y="47" font-family="'Space Grotesk',system-ui,sans-serif" font-weight="800"
+        font-size="40" fill="url(#qgrad)" text-anchor="middle" filter="url(#glow)">Q</text>
+  <!-- Pip dot — top-right, matches logo-pip -->
+  <circle cx="49" cy="15" r="5" fill="#b8ff3c" opacity="0.9"/>
+</svg>

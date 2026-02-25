@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="Questron — free real-time quiz battles. No account, no install." />
+  <meta name="theme-color" content="#b8ff3c" />
+  <title>Questron · Real-time quiz battles</title>
+  <link rel="canonical" href="https://questron.app/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://questron.app/" />
+  <meta property="og:title" content="Questron · Real-time quiz battles" />
+  <meta property="og:description" content="Free real-time quiz battles. No account, no install. Host live games for classrooms, remote teams, or trivia nights." />
+  <meta property="og:image" content="https://questron.app/logo.png" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Questron · Real-time quiz battles" />
+  <meta name="twitter:description" content="Free real-time quiz battles. No account, no install." />
+  <meta name="twitter:image" content="https://questron.app/logo.png" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="/styles.css" />
+  <style>
+    /* ── Layout ──────────────────────────────────────────────── */
+    body { overflow: hidden; }
+
+    .arena {
+      position: fixed;
+      inset: 0;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: clamp(28px, 5vh, 52px);
+      padding: clamp(24px, 5vw, 64px) var(--gap-md);
+      pointer-events: none; /* let fixed children handle clicks */
+    }
+    .arena > * { pointer-events: auto; }
+
+    /* ── Flyby layer ─────────────────────────────────────────── */
+    #flyby {
+      position: fixed;
+      inset: 0;
+      z-index: 2;
+      pointer-events: none;
+      overflow: hidden;
+    }
+    .fq {
+      position: absolute;
+      white-space: nowrap;
+      font-family: var(--font-display);
+      font-size: clamp(0.78rem, 1.4vw, 1rem);
+      font-weight: 600;
+      color: rgba(245,245,240,0.12);
+      letter-spacing: 0.01em;
+      will-change: transform, opacity;
+    }
+
+    @keyframes flyR {
+      from { transform: translateX(-110%); opacity: 0; }
+      10%  { opacity: 1; }
+      90%  { opacity: 1; }
+      to   { transform: translateX(110vw); opacity: 0; }
+    }
+    @keyframes flyL {
+      from { transform: translateX(110vw); opacity: 0; }
+      10%  { opacity: 1; }
+      90%  { opacity: 1; }
+      to   { transform: translateX(-110%); opacity: 0; }
+    }
+
+    /* ── Radial vignette behind center content ─────────────── */
+    .vignette {
+      position: fixed;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 100vw;
+      height: 100vh;
+      background: radial-gradient(ellipse 60% 55% at 50% 50%,
+        rgba(0,0,0,0.70) 0%,
+        rgba(0,0,0,0.45) 35%,
+        rgba(0,0,0,0.15) 60%,
+        transparent 78%
+      );
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    /* ── Logo block ──────────────────────────────────────────── */
+    .logo-block {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .logo-hero {
+      font-family: var(--font-display);
+      font-size: clamp(2.8rem, 8vw, 5.2rem);
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1;
+    }
+    .logo-hero .q { color: var(--lime); }
+    .logo-hero .rest { color: var(--text); }
+    .logo-hero .pip {
+      display: inline-block;
+      width: clamp(8px, 1.4vw, 13px);
+      height: clamp(8px, 1.4vw, 13px);
+      border-radius: 50%;
+      background: var(--lime);
+      margin-left: 4px;
+      vertical-align: super;
+      box-shadow: 0 0 16px var(--lime-glow), 0 0 32px var(--lime-glow);
+      animation: pipPulse 1.8s ease-in-out infinite;
+    }
+
+    /* Ticker */
+    .ticker-wrap {
+      overflow: hidden;
+      width: min(540px, 90vw);
+      mask-image: linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%);
+      -webkit-mask-image: linear-gradient(to right, transparent 0%, black 12%, black 88%, transparent 100%);
+    }
+    .ticker-inner {
+      display: flex;
+      gap: 0;
+      white-space: nowrap;
+      animation: tickerScroll 22s linear infinite;
+      will-change: transform;
+      transform: translateZ(0);
+    }
+    .ticker-inner span {
+      font-family: var(--font-display);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+      padding: 0 16px;
+    }
+    .ticker-inner span.hi { color: var(--lime); opacity: 0.7; }
+    @keyframes tickerScroll {
+      from { transform: translateX(0); }
+      to   { transform: translateX(-50%); }
+    }
+
+    /* ── Action pods ─────────────────────────────────────────── */
+    .pods {
+      display: flex;
+      gap: clamp(14px, 3vw, 28px);
+      flex-wrap: wrap;
+      justify-content: center;
+      perspective: 900px;
+    }
+    .pod {
+      position: relative;
+      width: clamp(160px, 38vw, 260px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding: clamp(22px, 4vw, 40px) clamp(18px, 3vw, 36px);
+      border-radius: 22px;
+      cursor: pointer;
+      text-decoration: none;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      transform-style: preserve-3d;
+      will-change: transform;
+      user-select: none;
+    }
+    .pod-host {
+      background: linear-gradient(155deg, rgba(184,255,60,0.13) 0%, rgba(184,255,60,0.03) 100%);
+      border: 1.5px solid rgba(184,255,60,0.32);
+      box-shadow:
+        0 8px 40px rgba(0,0,0,0.6),
+        0 0 55px rgba(184,255,60,0.07),
+        inset 0 1px 0 rgba(184,255,60,0.18),
+        0 22px 0 -4px rgba(60,90,0,0.55);
+    }
+    .pod-host:hover {
+      box-shadow:
+        0 12px 60px rgba(0,0,0,0.7),
+        0 0 80px rgba(184,255,60,0.20),
+        inset 0 1px 0 rgba(184,255,60,0.28),
+        0 24px 0 -4px rgba(60,90,0,0.65);
+    }
+    .pod-join {
+      background: linear-gradient(155deg, rgba(255,92,26,0.13) 0%, rgba(255,92,26,0.03) 100%);
+      border: 1.5px solid rgba(255,92,26,0.32);
+      box-shadow:
+        0 8px 40px rgba(0,0,0,0.6),
+        0 0 55px rgba(255,92,26,0.07),
+        inset 0 1px 0 rgba(255,92,26,0.18),
+        0 22px 0 -4px rgba(100,30,0,0.55);
+    }
+    .pod-join:hover {
+      box-shadow:
+        0 12px 60px rgba(0,0,0,0.7),
+        0 0 80px rgba(255,92,26,0.20),
+        inset 0 1px 0 rgba(255,92,26,0.28),
+        0 24px 0 -4px rgba(100,30,0,0.65);
+    }
+    .pod:active {
+      transform: translateY(4px) scale(0.97) !important;
+      transition: transform 0.06s ease;
+    }
+    .pod-icon {
+      font-size: clamp(2rem, 5vw, 3rem);
+      line-height: 1;
+    }
+    .pod-host .pod-icon { color: var(--lime); filter: drop-shadow(0 0 10px rgba(184,255,60,0.5)); }
+    .pod-join .pod-icon { color: var(--spark); filter: drop-shadow(0 0 10px rgba(255,92,26,0.5)); }
+
+    .pod-label {
+      font-family: var(--font-display);
+      font-size: clamp(1.4rem, 3.5vw, 2rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      line-height: 1;
+    }
+    .pod-host .pod-label { color: var(--lime); }
+    .pod-join .pod-label { color: var(--spark); }
+
+    .pod-hint {
+      font-size: 0.8rem;
+      color: var(--text-subtle);
+      text-align: center;
+      line-height: 1.35;
+    }
+    .pod-btn {
+      margin-top: 8px;
+      display: inline-block;
+      font-family: var(--font-display);
+      font-size: 0.85rem;
+      font-weight: 700;
+      padding: 9px 22px;
+      border-radius: 999px;
+      text-decoration: none;
+      transition: filter 0.15s ease, transform 0.15s ease;
+    }
+    .pod-host .pod-btn { background: var(--lime); color: #000; box-shadow: 0 0 18px rgba(184,255,60,0.3); }
+    .pod-join .pod-btn { background: var(--spark); color: #fff; box-shadow: 0 0 18px rgba(255,92,26,0.3); }
+    .pod:hover .pod-btn { filter: brightness(1.12); }
+
+    /* ── Secondary + footer ──────────────────────────────────── */
+    .secondary {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+    .secondary a {
+      font-family: var(--font-display);
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-subtle);
+      text-decoration: none;
+      transition: color 0.15s ease;
+    }
+    .secondary a:hover { color: var(--text); }
+    .secondary .dot { width: 3px; height: 3px; border-radius: 50%; background: var(--text-faint); }
+    .bottom-strip {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-faint);
+    }
+    .bottom-strip a {
+      color: inherit;
+      text-decoration: none;
+      border-bottom: 1px solid currentColor;
+      padding-bottom: 1px;
+      transition: color 0.15s ease;
+    }
+    .bottom-strip a:hover { color: var(--text-subtle); }
+
+    @media (max-width: 500px) {
+      .pods { flex-direction: column; align-items: center; }
+      .pod  { width: min(300px, 88vw); flex-direction: row; padding: 20px 22px; gap: 14px; align-items: center; }
+      .pod  { text-align: left; }
+      .pod-icon { font-size: 1.8rem; }
+      .pod-label { font-size: 1.4rem; }
+      .pod-btn { margin-top: 0; }
+      .pod-hint { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Flyby questions -->
+  <div id="flyby"></div>
+
+  <!-- Vignette: darkens center so content is readable -->
+  <div class="vignette"></div>
+
+  <!-- Main -->
+  <div class="arena">
+
+    <div class="logo-block">
+      <div class="logo-hero">
+        <span class="q">Quest</span><span class="rest">ron</span><span class="pip"></span>
+      </div>
+      <div class="ticker-wrap">
+        <div class="ticker-inner" id="ticker"></div>
+      </div>
+    </div>
+
+    <div class="pods">
+      <a href="/host" class="pod pod-host" id="podHost">
+        <div class="pod-icon">⚡</div>
+        <div>
+          <div class="pod-label">Host</div>
+          <div class="pod-hint">Upload a quiz &amp;<br>share the code</div>
+        </div>
+        <div class="pod-btn">Start a Game</div>
+      </a>
+      <a href="/join" class="pod pod-join" id="podJoin">
+        <div class="pod-icon">▶</div>
+        <div>
+          <div class="pod-label">Join</div>
+          <div class="pod-hint">Enter your<br>4-digit code</div>
+        </div>
+        <div class="pod-btn">Enter Room</div>
+      </a>
+    </div>
+
+    <div class="secondary">
+      <a href="/builder">🔧 Build a Quiz</a>
+      <div class="dot"></div>
+      <a href="/library">📚 Browse Library</a>
+    </div>
+
+    <div class="bottom-strip">
+      Free &nbsp;·&nbsp; No account &nbsp;·&nbsp;
+      <a href="https://github.com/questron-app/questron" target="_blank" rel="noopener">Open Source ↗</a>
+    </div>
+
+  </div>
+
+  <script src="/constants.js"></script>
+  <script>
+    initPulseBackground();
+
+    // ── Ticker ────────────────────────────────────────────────
+    const CATS = ['Geography','History','Science','Pop Culture','Sports','Music','Movies','Literature','Technology','Food & Drink'];
+    const ticker = document.getElementById('ticker');
+    const doubled = [...CATS, ...CATS];
+    ticker.innerHTML = doubled.map((c, i) =>
+      `<span${i % CATS.length === 0 ? ' class="hi"' : ''}>${c}</span>` +
+      `<span style="color:rgba(255,255,255,0.10);padding:0 4px">·</span>`
+    ).join('');
+
+    // ── 3D Mouse-follow tilt on pods ──────────────────────────
+    function addTilt(el) {
+      let rafId = null;
+      el.addEventListener('mousemove', e => {
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          const r  = el.getBoundingClientRect();
+          const dx = ((e.clientX - r.left) / r.width  - 0.5) * 2;
+          const dy = ((e.clientY - r.top)  / r.height - 0.5) * 2;
+          el.style.transform = `rotateY(${dx * 11}deg) rotateX(${-dy * 9}deg) translateZ(16px)`;
+        });
+      });
+      el.addEventListener('mouseleave', () => {
+        if (rafId) cancelAnimationFrame(rafId);
+        el.style.transition = 'transform 0.6s cubic-bezier(0.22,1,0.36,1), box-shadow 0.6s ease';
+        el.style.transform  = '';
+        setTimeout(() => { el.style.transition = ''; }, 620);
+      });
+    }
+    addTilt(document.getElementById('podHost'));
+    addTilt(document.getElementById('podJoin'));
+
+    // ── Flyby question text ───────────────────────────────────
+    const QS = [
+      'Capital of France?',
+      'Who painted the Mona Lisa?',
+      'Largest planet in the solar system?',
+      'Speed of light in km/s?',
+      '2 + 2 × 2 = ?',
+      'Author of Romeo and Juliet?',
+      'What is the capital of Japan?',
+      'Year of the first Moon landing?',
+    ];
+
+    // Spread evenly across the vertical space, alternating directions
+    const flyby = document.getElementById('flyby');
+    QS.forEach((text, i) => {
+      const div = document.createElement('div');
+      div.className = 'fq';
+      div.textContent = text;
+
+      const goRight = i % 2 === 0;
+      // Distribute vertically: skip the middle 30% so they don't overlap the UI
+      const band = i % 2 === 0 ? (i / QS.length) * 48 + 2 : (i / QS.length) * 48 + 52;
+      div.style.top  = `${band}%`;
+      div.style.left = '0';
+
+      const dur   = 40 + (i * 6.3) % 25;  // 40–65s
+      const delay = -(i * 7.8) % dur;      // negative delay = already mid-flight on load
+      div.style.animation = `${goRight ? 'flyR' : 'flyL'} ${dur}s ${delay}s linear infinite`;
+
+      flyby.appendChild(div);
+    });
+  </script>
+</body>
+</html>

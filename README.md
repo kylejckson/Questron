@@ -1,70 +1,79 @@
-# NanoQuiz
+# Questron
 
-NanoQuiz is a lightweight, open-source quiz game platform inspired by popular online education and trivia sites. Unlike many commercial solutions locked behind paywalls, NanoQuiz is free to use, modify, and share. Use it for educational purposes, trivia nights, friendly competitions, or even as a fun party or drinking game!
+**[questron.app](https://questron.app)** — Free, real-time multiplayer quiz platform. No account, no install.
+
+Host live quiz games for classrooms, remote teams, or trivia nights. Players join with a 6-character room code on any device.
 
 ## Features
 
-- Host and join real-time quiz games in your browser
-- Supports custom question sets via JSON import
-- Leaderboards, timers, and answer reveal animations
-- Designed for classrooms, remote teams, or social gatherings
+- **Real-time multiplayer** — WebSocket-powered, sub-second latency
+- **Streak system** — consecutive correct answers earn bonus points
+- **Race leaderboard** — live speed-based rankings after every question
+- **3D card-flip reveals** — animated answer reveals with sound effects
+- **QR code lobby** — players scan to join instantly
+- **Quiz Builder** — create `.questron` quiz packs with image support
+- **Quiz Library** — browse and play community quizzes
+- **Mobile-first** — responsive design, works on phones, tablets, and desktops
+- **Dark PULSE UI** — animated particle background, lime-accent design system
+- **Secure** — host secret auth, origin validation, rate limiting, CSPRNG room codes
 
-## Screenshots
-![Main Quiz](/screenshots/screen3.png?raw=true)
+## Tech Stack
 
-![Main Quiz](/screenshots/screen4.png?raw=true)
+| Layer | Technology |
+|-------|-----------|
+| Frontend | Vanilla HTML/CSS/JS on Cloudflare Pages |
+| Game Server | Cloudflare Workers + Durable Objects (TypeScript) |
+| Transport | Native WebSockets |
+| CDN Assets | jsDelivr (JSZip), cdnjs (QRCode.js) |
 
-![Main Quiz](/screenshots/screen1.png?raw=true)
+## Quick Start (Local Dev)
 
-![Main Quiz](/screenshots/screen2.png?raw=true)
+```bash
+git clone https://github.com/kylejckson/Questron.git
+cd Questron
+npm install
+cd worker && npm install && cd ..
 
-## Installation
+# Run both frontend and worker
+npm run dev
+```
 
-1. **Clone or Download the Repository**
+- Frontend: `http://localhost:3000`
+- Worker: `http://localhost:8787`
 
-   ```
-   git clone https://github.com/kylejckson/nanoquiz.git
-   cd nanoquiz
-   ```
+## Project Structure
 
-2. **Install Dependencies**
+```
+public/          Static frontend (served by Cloudflare Pages)
+  index.html     Landing page
+  host.html      Host/create game screen
+  join.html      Room code entry
+  player.html    Player game screen
+  builder.html   Quiz builder tool
+  library.html   Browse community quizzes
+  constants.js   Shared config (server URL, helpers)
+  host.js        Host game logic
+  player.js      Player game logic
+  styles.css     PULSE design system
+worker/          Cloudflare Worker (game server)
+  src/index.ts   Request router
+  src/GameRoom.ts Durable Object — game state machine
+scripts/         CLI tools
+  pack-quiz.js   Pack quiz folders into .questron files
+```
 
-   Make sure you have [Node.js](https://nodejs.org/) installed (v18 or newer recommended).
+## Creating Quizzes
 
-   ```
-   npm install
-   ```
+Use the [Builder](https://questron.app/build) to create quiz packs in-browser, or run the CLI packer:
 
-3. **Run the Server**
+```bash
+npm run pack:quiz -- path/to/quiz-folder
+```
 
-   ```
-   npm start
-   ```
-
-   By default, the server will run on `http://localhost:3000/host.html` (see `server.js` for host/port configuration).
-
-4. **Access the App**
-
-   - **Host a Game:** Open `http://<your-server-ip>:3000/host.html` in your browser.
-   - **Join a Game:** Open `http://<your-server-ip>:3000/join.html` or use the join link provided by the host.
-
-## Creating and Importing Quizzes
-
-- Prepare your quiz as a JSON file (see `quiz_template.json` for the required format).
-- When hosting a game, upload your JSON file to start.
-
-For a collection of ready-to-use quiz JSONs, visit:  
-[Quiz JSON Repository](https://github.com/kylejckson/NanoQuizExamples)
+Quiz format: JSON with questions, 4 answer choices, correct index, and optional images.
 
 ## License
 
-This project is open source and free to distribute under the MIT License.  
-See [LICENSE](LICENSE) for details.
+MIT — see [LICENSE](LICENSE).
 
-> **Disclaimer:**  
-> NanoQuiz is provided for educational and entertainment purposes.  
-> It is not affiliated with or endorsed by any commercial quiz or education platform.
-
----
-
-Enjoy learning, competing, and having fun!
+Built by [Kyle Jackson](https://github.com/kylejckson).
