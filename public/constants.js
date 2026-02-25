@@ -11,7 +11,7 @@ const GAME_SERVER_URL = _serverOverride
   ? _serverOverride.replace(/^ws/, 'http')
   : _isLocalDev
     ? 'http://localhost:8787'
-    : 'https://game.questron.app';
+    : 'https://questron-game.kyden.workers.dev';
 const GAME_SERVER_WS = GAME_SERVER_URL.replace(/^http/, 'ws');
 
 // ── WebSocket wrapper ─────────────────────────────────────────────────────
