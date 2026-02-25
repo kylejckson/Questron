@@ -4,9 +4,5 @@
 # www → apex
 https://www.questron.app/* https://questron.app/:splat 301
 
-# Legacy routes (no .html extension)
-/host    /host.html    301
-/join    /join.html    301
-/play    /player.html  301
-/build   /builder.html 301
-/library /library.html 301
+# NOTE: Clean URLs (/host → host.html etc.) are handled automatically
+# by Cloudflare Pages — no manual redirects needed.

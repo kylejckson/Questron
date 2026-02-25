@@ -2,7 +2,7 @@
   # Security headers — applied to all responses from Cloudflare Pages
   # https://developers.cloudflare.com/pages/platform/headers/
 
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://challenges.cloudflare.com; img-src 'self' data: blob: https://cdn.jsdelivr.net; media-src 'self'; connect-src 'self' https://questron-game.kyden.workers.dev wss://questron-game.kyden.workers.dev https://game.questron.app wss://game.questron.app https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://challenges.cloudflare.com; img-src 'self' data: blob: https://cdn.jsdelivr.net; media-src 'self'; connect-src 'self' https://questron-game.kyden.workers.dev wss://questron-game.kyden.workers.dev https://game.questron.app wss://game.questron.app https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; frame-src https://challenges.cloudflare.com; object-src 'none'; base-uri 'self'
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
