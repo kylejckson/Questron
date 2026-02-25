@@ -48,8 +48,11 @@ function validateQuiz(payload: unknown): boolean {
 function isOriginAllowed(origin: string | null): boolean {
   if (!origin) return false;
   if (origin === 'https://questron.app' || origin === 'https://www.questron.app') return true;
+  if (origin === 'https://questron.pages.dev') return true;
+  // Allow Cloudflare Pages preview deployments (*.questron.pages.dev)
   try {
     const u = new URL(origin);
+    if (u.hostname.endsWith('.questron.pages.dev')) return true;
     return (u.hostname === 'localhost' || u.hostname === '127.0.0.1') && u.protocol === 'http:';
   } catch { return false; }
 }
