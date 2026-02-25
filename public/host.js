@@ -956,6 +956,7 @@ el.backToCreateBtn.addEventListener('click', () => {
 (function () {
   const stored = sessionStorage.getItem('questron_quiz_payload');
   if (stored && new URLSearchParams(location.search).has('from')) {
+    if (location.search) history.replaceState(null, '', location.pathname);
     try {
       const parsed = JSON.parse(stored);
       sessionStorage.removeItem('questron_quiz_payload');

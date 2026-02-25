@@ -52,6 +52,8 @@ const params          = new URLSearchParams(location.search);
 const gameId          = params.get('game');
 const nameFromJoin    = params.get('name');  // passed from join.html
 let   myName          = nameFromJoin || '';
+// Clean up URL so game ID / name don't show in the address bar
+if (location.search) history.replaceState(null, '', location.pathname);
 let   currentQId      = null;
 let   lockedOptionId  = null;
 let   stopTimer       = null;
