@@ -134,7 +134,7 @@
 
 /* ── Reset ──────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html { height: 100%; }
+html { height: 100%; overflow: hidden; }
 body {
   min-height: 100%;
   font-family: var(--font-body);
@@ -143,6 +143,8 @@ body {
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: none;
 }
 
 /* ── THE LIVING BACKGROUND ──────────────────────────────────── */
@@ -250,6 +252,7 @@ body > *:not(.bg-blobs):not(.bg-dither):not(.bg-grid):not(.arena):not(.vignette)
 }
 .page-center {
   min-height: 100vh;
+  min-height: 100svh;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -660,7 +663,7 @@ h1, h2, h3 {
 .timer-ring {
   width: 68px; height: 68px;
   transform: rotate(-90deg);
-  overflow: visible; position: relative; z-index: 1;
+  overflow: clip; position: relative; z-index: 1;
 }
 .timer-ring__bg {
   fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 6;
