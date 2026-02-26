@@ -138,16 +138,18 @@
 /*
  * Scroll architecture:
  *   html  → overflow:hidden  → delegates scrolling to body
- *   body  → overflow-y:auto  → the ACTUAL scroll container
+ *   body  → overflow-y:scroll → the ACTUAL scroll container
  *
- * Scrollbar hiding targets BODY (the scroll container):
- *   scrollbar-width:none          → Firefox
- *   -ms-overflow-style:none       → IE/old Edge
- *   body::-webkit-scrollbar       → Chromium/WebKit (Android Edge, Chrome, Safari)
+ * Scrollbar hiding uses ONLY the W3C-standard scrollbar-width:none
+ * on body. This is supported in Chrome 121+, Edge 121+, Firefox 64+,
+ * Safari 16+ (all 2+ years old as of 2026).
  *
- * DO NOT add scrollbar-width or ::-webkit-scrollbar to html —
- * html is not the scroll container and touching its scrollbar
- * props can break viewport scroll delegation in some Chromium builds.
+ * We deliberately avoid ::-webkit-scrollbar — it is non-standard
+ * and is known to break body scrolling when html delegates via
+ * overflow:hidden on some Chromium mobile builds.
+ *
+ * DO NOT add any scrollbar or overflow props to html except
+ * overflow:hidden — that is what delegates scroll to body.
  */
 html { height: 100%; overflow: hidden; }
 body {
@@ -158,13 +160,12 @@ body {
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
-  overflow-y: auto;
+  overflow-y: scroll;
   overscroll-behavior: none;
-  /* Hide scrollbar indicator – body is the scroll container */
+  /* Hide scrollbar indicator — W3C standard, all modern browsers */
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-body::-webkit-scrollbar { display: none; }
 
 /* ── THE LIVING BACKGROUND ──────────────────────────────────── */
 
