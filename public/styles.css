@@ -134,18 +134,24 @@
 
 /* ── Reset ──────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html {
-  /* height:auto lets html grow with content so body can scroll normally.
-     height:100% would pin html to viewport height and break scroll on tall pages. */
-  height: auto;
-  min-height: 100%;
-  /* Hide scrollbar UI without blocking scroll ability */
-  scrollbar-width: none;       /* Firefox */
-  -ms-overflow-style: none;    /* IE/Edge legacy */
-}
-html::-webkit-scrollbar { display: none; width: 0; height: 0; }
+
+/*
+ * Scroll architecture:
+ *   html  → overflow:hidden  → delegates scrolling to body
+ *   body  → overflow-y:auto  → the ACTUAL scroll container
+ *
+ * Scrollbar hiding targets BODY (the scroll container):
+ *   scrollbar-width:none          → Firefox
+ *   -ms-overflow-style:none       → IE/old Edge
+ *   body::-webkit-scrollbar       → Chromium/WebKit (Android Edge, Chrome, Safari)
+ *
+ * DO NOT add scrollbar-width or ::-webkit-scrollbar to html —
+ * html is not the scroll container and touching its scrollbar
+ * props can break viewport scroll delegation in some Chromium builds.
+ */
+html { height: 100%; overflow: hidden; }
 body {
-  min-height: 100vh;
+  min-height: 100%;
   font-family: var(--font-body);
   background: var(--bg);
   color: var(--text);
@@ -154,11 +160,11 @@ body {
   overflow-x: hidden;
   overflow-y: auto;
   overscroll-behavior: none;
-  /* Hide scrollbar UI on Android/WebKit — scroll still works */
+  /* Hide scrollbar indicator – body is the scroll container */
   scrollbar-width: none;
   -ms-overflow-style: none;
 }
-body::-webkit-scrollbar { display: none; width: 0; height: 0; }
+body::-webkit-scrollbar { display: none; }
 
 /* ── THE LIVING BACKGROUND ──────────────────────────────────── */
 
