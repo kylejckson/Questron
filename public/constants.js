@@ -14,6 +14,13 @@ const GAME_SERVER_URL = _serverOverride
     : 'https://questron-game.kyden.workers.dev';
 const GAME_SERVER_WS = GAME_SERVER_URL.replace(/^http/, 'ws');
 
+// ── Android detection ─────────────────────────────────────────────────────
+// Android Chromium has aggressive GPU-layer eviction that flickers when too
+// many compositor layers exist.  We tag <html> so CSS can strip expensive
+// effects while leaving Desktop and iOS completely untouched.
+const _isAndroid = /android/i.test(navigator.userAgent);
+if (_isAndroid) document.documentElement.classList.add('is-android');
+
 // ── WebSocket wrapper ─────────────────────────────────────────────────────
 // Provides a Socket.IO-like .on() / .emit(type, payload, ack?) API over a
 // single native WebSocket, with auto-reconnect and message queuing.
@@ -142,7 +149,7 @@ function startTimerRing(containerId, seconds, onTick) {
   let raf;
   // On mobile, update only once per second (not 60fps) to minimise repaints.
   // CSS transition on stroke-dashoffset keeps the ring visually smooth.
-  const _mobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const _mobile = _isAndroid;
   let lastSec = seconds + 1; // force first update
 
   function tick() {
@@ -201,7 +208,8 @@ function initPulseBackground() {
   blobs.innerHTML = '<div class="bg-blob"></div><div class="bg-blob"></div><div class="bg-blob"></div><div class="bg-blob"></div>';
   document.body.insertBefore(blobs, document.body.firstChild);
 
-  // ASCII canvas — maps blob positions to colored ASCII characters
+  // ASCII canvas — skip entirely on Android (full-viewport GPU texture is too expensive)
+  if (!_isAndroid) {
   const ASCII_CHARS = '·∘◦·.·∘◦○•·+';
   const CELL = 18;
   const BLOBS_DATA = [
@@ -277,6 +285,7 @@ function initPulseBackground() {
   });
   // Draw first frame immediately; on desktop keep looping, on mobile stop after one
   requestAnimationFrame(drawAscii);
+  } // end if (!_isAndroid) — canvas block
 
   // Dither overlay
   const dither = document.createElement('div');
