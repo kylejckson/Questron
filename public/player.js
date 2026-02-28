@@ -37,6 +37,7 @@ const el = {
   feedbackStreak:    $('feedbackStreak'),
   rankBadge:         $('rankBadge'),
   reactionBar:       $('reactionBar'),
+  feedbackFlash:     $('feedbackFlash'),
   music:             $('music'),
   revealAudio:       $('revealAudio'),
 
@@ -56,6 +57,7 @@ let   myName          = nameFromJoin || '';
 if (location.search) history.replaceState(null, '', location.pathname);
 let   currentQId      = null;
 let   lockedOptionId  = null;
+let   reactionSentForQ = null;   // limits reactions to one per question
 let   stopTimer       = null;
 let   myRank          = null;
 let   prevLeaderboard = [];
@@ -167,6 +169,12 @@ socket.on('question:show', (q) => {
   stopTimer?.();
   currentQId   = q.id;
   lockedOptionId = null;
+  reactionSentForQ = null;
+  // Re-enable all reaction buttons for the new question
+  el.reactionBar.querySelectorAll('.reaction-btn').forEach(b => {
+    b.disabled = false;
+    b.classList.remove('reaction-used');
+  });
 
   // Progress bar
   const pct = ((q.index) / q.total) * 100;
@@ -308,6 +316,16 @@ socket.on('question:reveal', ({ correctOptionIds, leaderboard, counts }) => {
   const gotCorrect = lockedId && correctIds.includes(lockedId);
   const answered   = !!lockedId;
 
+  // Full-screen flash feedback (immediately visible on mobile without scrolling)
+  if (el.feedbackFlash) {
+    el.feedbackFlash.classList.remove('flash-correct', 'flash-wrong', 'flash-timeout');
+    // Force reflow so re-adding the class restarts the animation
+    void el.feedbackFlash.offsetWidth;
+    el.feedbackFlash.classList.add(
+      !answered ? 'flash-timeout' : gotCorrect ? 'flash-correct' : 'flash-wrong'
+    );
+  }
+
   // Show answers for reveal
   el.answers.classList.remove('hidden');
   el.lockedState.classList.add('hidden');
@@ -420,14 +438,21 @@ socket.on('player:kicked', () => {
   el.joinBtn.disabled = false;
 });
 
-// ── Reaction buttons ─────────────────────────────────────────
+// ── Reaction buttons (one per question) ──────────────────────
 el.reactionBar.addEventListener('click', e => {
   const btn = e.target.closest('.reaction-btn');
   if (!btn || !gameId) return;
+  if (reactionSentForQ === currentQId) return; // already reacted this question
   const emoji = btn.dataset.emoji;
   if (!emoji) return;
+  reactionSentForQ = currentQId;
   socket.emit('player:react', { gameId, emoji });
-  // Brief visual feedback
+  // Disable all reaction buttons until next question
+  el.reactionBar.querySelectorAll('.reaction-btn').forEach(b => {
+    b.disabled = true;
+    b.classList.add('reaction-used');
+  });
+  // Brief pop feedback on the tapped button
   btn.classList.add('reacted');
   setTimeout(() => btn.classList.remove('reacted'), 600);
 });

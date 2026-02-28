@@ -176,6 +176,9 @@ body {
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
+  contain: strict;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 .bg-blob {
   position: absolute;
@@ -185,6 +188,8 @@ body {
   mix-blend-mode: screen;
   animation: blobDrift linear infinite;
   will-change: transform, border-radius;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 .bg-blob:nth-child(1) {
   width: 650px; height: 550px;
@@ -224,6 +229,9 @@ body {
   background-image: radial-gradient(circle, rgba(255,255,255,0.55) 0.5px, transparent 0.5px);
   background-size: 5px 5px;
   opacity: 0.065;
+  contain: strict;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 /* Layer 3: Grid lines */
@@ -236,6 +244,9 @@ body {
     linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
     linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
   background-size: 42px 42px;
+  contain: strict;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 /* Layer 4: CRT scanlines */
@@ -251,6 +262,9 @@ body {
     rgba(0,0,0,0.20) 2px,
     rgba(0,0,0,0.20) 3px
   );
+  contain: strict;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 
 /* Everything else sits above layers */
@@ -341,6 +355,8 @@ h1, h2, h3 {
   -webkit-backdrop-filter: blur(28px);
   /* Radial dark halo — background recedes away from panel */
   box-shadow: 0 0 80px 40px rgba(0,0,0,0.75);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 .glass-elevated {
   background: rgba(14,14,14,0.94);
@@ -687,7 +703,7 @@ h1, h2, h3 {
 .timer-ring {
   width: 68px; height: 68px;
   transform: rotate(-90deg);
-  overflow: clip; position: relative; z-index: 1;
+  overflow: visible; position: relative; z-index: 1;
 }
 .timer-ring__bg {
   fill: none; stroke: rgba(255,255,255,0.06); stroke-width: 6;
@@ -745,7 +761,8 @@ h1, h2, h3 {
     background 0.2s ease,
     border-color 0.2s ease;
   animation: answerIn 0.32s cubic-bezier(0.22,1,0.36,1) both;
-  will-change: transform;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
 }
 .answer:nth-child(1) { animation-delay: 0.04s; }
 .answer:nth-child(2) { animation-delay: 0.08s; }
@@ -1163,6 +1180,32 @@ h1, h2, h3 {
   text-shadow: 0 0 20px var(--correct-glow);
 }
 
+/* ── Full-screen flash feedback (correct/wrong/timeout) ───── */
+.feedback-flash {
+  position: fixed;
+  inset: 0;
+  z-index: 250;
+  pointer-events: none;
+  opacity: 0;
+}
+.feedback-flash.flash-correct {
+  background: radial-gradient(ellipse at center, rgba(0,232,160,0.45) 0%, rgba(0,232,160,0) 75%);
+  animation: feedbackFlashPulse 0.7s ease-out forwards;
+}
+.feedback-flash.flash-wrong {
+  background: radial-gradient(ellipse at center, rgba(255,80,80,0.45) 0%, rgba(255,80,80,0) 75%);
+  animation: feedbackFlashPulse 0.7s ease-out forwards;
+}
+.feedback-flash.flash-timeout {
+  background: radial-gradient(ellipse at center, rgba(255,210,63,0.30) 0%, rgba(255,210,63,0) 75%);
+  animation: feedbackFlashPulse 0.7s ease-out forwards;
+}
+@keyframes feedbackFlashPulse {
+  0%   { opacity: 0; }
+  15%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 /* ── Locked Overlay ─────────────────────────────────────────── */
 .locked-overlay {
   display: flex; flex-direction: column; align-items: center; justify-content: center;
@@ -1359,6 +1402,7 @@ h1, h2, h3 {
 .reaction-btn:hover { transform: scale(1.18) translateY(-3px); box-shadow: 0 0 20px rgba(167,139,250,0.3); border-color: var(--violet-soft); }
 .reaction-btn:active { transform: scale(0.88); }
 .reaction-btn.reacted { border-color: var(--violet-soft); background: var(--violet-dim); animation: reactionPop 0.3s cubic-bezier(0.34,1.56,0.64,1); box-shadow: 0 0 16px var(--violet-glow); }
+.reaction-btn.reaction-used { opacity: 0.35; cursor: default; pointer-events: none; }
 
 /* ── Auto-advance ───────────────────────────────────────────── */
 .auto-advance-bar { height: 2px; background: var(--border); border-radius: var(--r-full); overflow: hidden; margin-top: var(--gap-sm); }

@@ -202,15 +202,18 @@ function initPulseBackground() {
 
   const cvs = document.createElement('canvas');
   cvs.id = 'bg-ascii-canvas';
-  cvs.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;';
+  cvs.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;contain:strict;-webkit-backface-visibility:hidden;backface-visibility:hidden;';
   document.body.insertBefore(cvs, blobs.nextSibling);
   const ctx = cvs.getContext('2d');
 
   let t = 0, lastTs = 0, rafId = null;
+  // Throttle more aggressively on mobile to prevent compositing flicker
+  const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const FRAME_INTERVAL = isMobile ? 200 : 110; // ~5fps mobile, ~9fps desktop
 
   function drawAscii(ts) {
     rafId = requestAnimationFrame(drawAscii);
-    if (ts - lastTs < 110) return; // ~9 fps — lightweight
+    if (ts - lastTs < FRAME_INTERVAL) return;
     lastTs = ts;
 
     const W = window.innerWidth;
