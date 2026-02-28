@@ -208,8 +208,9 @@ function initPulseBackground() {
   blobs.innerHTML = '<div class="bg-blob"></div><div class="bg-blob"></div><div class="bg-blob"></div><div class="bg-blob"></div>';
   document.body.insertBefore(blobs, document.body.firstChild);
 
-  // ASCII canvas — skip entirely on Android (full-viewport GPU texture is too expensive)
-  if (!_isAndroid) {
+  // ASCII canvas — maps blob positions to colored ASCII characters
+  // On Android we run at ~3 fps to keep the animation alive without
+  // overwhelming the compositor.  Desktop runs at ~9 fps.
   const ASCII_CHARS = '·∘◦·.·∘◦○•·+';
   const CELL = 18;
   const BLOBS_DATA = [
@@ -226,14 +227,12 @@ function initPulseBackground() {
   const ctx = cvs.getContext('2d');
 
   let t = 0, lastTs = 0, rafId = null;
-  // On mobile, render a single static frame then stop — no continuous repaints
-  // that would cascade through backdrop-filter re-evaluation.
-  const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  const FRAME_INTERVAL = isMobile ? 0 : 110; // mobile: draw once, desktop: ~9fps
+  // Android: ~3 fps  |  Desktop/iOS: ~9 fps
+  const FRAME_INTERVAL = _isAndroid ? 330 : 110;
 
   function drawAscii(ts) {
-    if (!isMobile) rafId = requestAnimationFrame(drawAscii);
-    if (!isMobile && ts - lastTs < FRAME_INTERVAL) return;
+    rafId = requestAnimationFrame(drawAscii);
+    if (ts - lastTs < FRAME_INTERVAL) return;
     lastTs = ts;
 
     const W = window.innerWidth;
@@ -281,11 +280,9 @@ function initPulseBackground() {
 
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) cancelAnimationFrame(rafId);
-    else if (!isMobile) requestAnimationFrame(drawAscii);
+    else requestAnimationFrame(drawAscii);
   });
-  // Draw first frame immediately; on desktop keep looping, on mobile stop after one
   requestAnimationFrame(drawAscii);
-  } // end if (!_isAndroid) — canvas block
 
   // Dither overlay
   const dither = document.createElement('div');
