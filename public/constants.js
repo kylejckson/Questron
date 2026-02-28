@@ -14,13 +14,6 @@ const GAME_SERVER_URL = _serverOverride
     : 'https://questron-game.kyden.workers.dev';
 const GAME_SERVER_WS = GAME_SERVER_URL.replace(/^http/, 'ws');
 
-// ── Android detection ─────────────────────────────────────────────────────
-// Android Chromium has aggressive GPU-layer eviction that flickers when too
-// many compositor layers exist.  We tag <html> so CSS can strip expensive
-// effects while leaving Desktop and iOS completely untouched.
-const _isAndroid = /android/i.test(navigator.userAgent);
-if (_isAndroid) document.documentElement.classList.add('is-android');
-
 // ── WebSocket wrapper ─────────────────────────────────────────────────────
 // Provides a Socket.IO-like .on() / .emit(type, payload, ack?) API over a
 // single native WebSocket, with auto-reconnect and message queuing.
@@ -147,22 +140,11 @@ function startTimerRing(containerId, seconds, onTick) {
 
   const endTime = Date.now() + seconds * 1000;
   let raf;
-  // On mobile, update only once per second (not 60fps) to minimise repaints.
-  // CSS transition on stroke-dashoffset keeps the ring visually smooth.
-  const _mobile = _isAndroid;
-  let lastSec = seconds + 1; // force first update
 
   function tick() {
     const msLeft  = endTime - Date.now();
     const secLeft = Math.max(0, Math.ceil(msLeft / 1000));
     const pct     = Math.max(0, msLeft / (seconds * 1000));
-
-    // On mobile, skip DOM writes unless the displayed second changed
-    if (_mobile && secLeft === lastSec && msLeft > 0) {
-      raf = requestAnimationFrame(tick);
-      return;
-    }
-    lastSec = secLeft;
 
     fill.style.strokeDashoffset = ((1 - pct) * RING_CIRCUMFERENCE).toFixed(2);
     num.textContent = secLeft;
@@ -209,8 +191,6 @@ function initPulseBackground() {
   document.body.insertBefore(blobs, document.body.firstChild);
 
   // ASCII canvas — maps blob positions to colored ASCII characters
-  // On Android we run at ~3 fps to keep the animation alive without
-  // overwhelming the compositor.  Desktop runs at ~9 fps.
   const ASCII_CHARS = '·∘◦·.·∘◦○•·+';
   const CELL = 18;
   const BLOBS_DATA = [
@@ -227,8 +207,7 @@ function initPulseBackground() {
   const ctx = cvs.getContext('2d');
 
   let t = 0, lastTs = 0, rafId = null;
-  // Android: ~3 fps  |  Desktop/iOS: ~9 fps
-  const FRAME_INTERVAL = _isAndroid ? 330 : 110;
+  const FRAME_INTERVAL = 110; // ~9 fps
 
   function drawAscii(ts) {
     rafId = requestAnimationFrame(drawAscii);
