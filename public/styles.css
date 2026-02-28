@@ -217,6 +217,57 @@ body {
   .bg-scanlines {
     display: none !important;
   }
+  /* Phase 3: Hide grid overlay on mobile — removes an intermediate compositor
+     layer between background and content that forces extra compositing work */
+  .bg-grid {
+    display: none !important;
+  }
+  /* Phase 2: Remove backdrop-filter on mobile — eliminates the most expensive
+     compositing operation (real-time Gaussian blur re-evaluation on every
+     background layer change). Replace with opaque/near-opaque backgrounds. */
+  .glass {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(10,10,10,0.97) !important;
+  }
+  .glass-elevated {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(14,14,14,0.98) !important;
+  }
+  .answer {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(10,10,10,0.95) !important;
+  }
+  .answer.wrong {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+  .waiting-frame {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(14,14,26,0.97) !important;
+  }
+  .sound-toggle,
+  .mode-toggle {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: var(--surface-2) !important;
+  }
+  .site-nav {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: rgba(8,8,8,0.97) !important;
+  }
+  /* Phase 5: Disable timer plasma halo + drop-shadow on mobile — removes
+     continuously-animating blurred pseudo-element and SVG filter */
+  .timer-container::before {
+    display: none !important;
+  }
+  .timer-ring__fill {
+    filter: none !important;
+  }
 }
 .bg-blob:nth-child(1) {
   width: 650px; height: 550px;
@@ -741,7 +792,7 @@ h1, h2, h3 {
   stroke-width: 6; stroke-linecap: round;
   stroke-dasharray: 283;
   stroke-dashoffset: 0;
-  transition: stroke 0.4s ease;
+  transition: stroke 0.4s ease, stroke-dashoffset 0.9s linear;
   filter: drop-shadow(0 0 6px var(--cyan-glow));
 }
 .timer-number {

@@ -140,11 +140,22 @@ function startTimerRing(containerId, seconds, onTick) {
 
   const endTime = Date.now() + seconds * 1000;
   let raf;
+  // On mobile, update only once per second (not 60fps) to minimise repaints.
+  // CSS transition on stroke-dashoffset keeps the ring visually smooth.
+  const _mobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  let lastSec = seconds + 1; // force first update
 
   function tick() {
     const msLeft  = endTime - Date.now();
     const secLeft = Math.max(0, Math.ceil(msLeft / 1000));
     const pct     = Math.max(0, msLeft / (seconds * 1000));
+
+    // On mobile, skip DOM writes unless the displayed second changed
+    if (_mobile && secLeft === lastSec && msLeft > 0) {
+      raf = requestAnimationFrame(tick);
+      return;
+    }
+    lastSec = secLeft;
 
     fill.style.strokeDashoffset = ((1 - pct) * RING_CIRCUMFERENCE).toFixed(2);
     num.textContent = secLeft;
@@ -207,39 +218,28 @@ function initPulseBackground() {
   const ctx = cvs.getContext('2d');
 
   let t = 0, lastTs = 0, rafId = null;
-  // Throttle more aggressively on mobile to prevent compositing flicker
+  // On mobile, render a single static frame then stop — no continuous repaints
+  // that would cascade through backdrop-filter re-evaluation.
   const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  const FRAME_INTERVAL = isMobile ? 250 : 110; // ~4fps mobile, ~9fps desktop
-
-  // On mobile, use double-buffering to avoid visible canvas clear/redraw flicker
-  let offCvs, offCtx;
-  if (isMobile) {
-    offCvs = document.createElement('canvas');
-    offCtx = offCvs.getContext('2d');
-  }
+  const FRAME_INTERVAL = isMobile ? 0 : 110; // mobile: draw once, desktop: ~9fps
 
   function drawAscii(ts) {
-    rafId = requestAnimationFrame(drawAscii);
-    if (ts - lastTs < FRAME_INTERVAL) return;
+    if (!isMobile) rafId = requestAnimationFrame(drawAscii);
+    if (!isMobile && ts - lastTs < FRAME_INTERVAL) return;
     lastTs = ts;
 
     const W = window.innerWidth;
     const H = window.innerHeight;
     if (cvs.width !== W || cvs.height !== H) {
       cvs.width = W; cvs.height = H;
-      if (offCvs) { offCvs.width = W; offCvs.height = H; }
     }
-
-    // Pick the drawing context — offscreen on mobile, direct on desktop
-    const drawCtx = offCtx || ctx;
-    if (!offCtx) ctx.clearRect(0, 0, W, H);
-    else drawCtx.clearRect(0, 0, W, H);
+    ctx.clearRect(0, 0, W, H);
 
     const cols = Math.ceil(W / CELL);
     const rows = Math.ceil(H / CELL);
-    drawCtx.font = `${Math.round(CELL * 0.62)}px 'Space Mono', monospace`;
-    drawCtx.textAlign = 'left';
-    drawCtx.textBaseline = 'middle';
+    ctx.font = `${Math.round(CELL * 0.62)}px 'Space Mono', monospace`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
 
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
@@ -264,22 +264,18 @@ function initPulseBackground() {
         const idx  = Math.min(ASCII_CHARS.length - 1, Math.floor(bright * (ASCII_CHARS.length - 0.5)));
         const ch   = ASCII_CHARS[idx];
         const a    = Math.min(0.55, 0.06 + bright * 0.52);
-        drawCtx.fillStyle = `rgba(${Math.round(R/bright)},${Math.round(G/bright)},${Math.round(B/bright)},${a.toFixed(3)})`;
-        drawCtx.fillText(ch, c * CELL + 2, r * CELL + CELL * 0.52);
+        ctx.fillStyle = `rgba(${Math.round(R/bright)},${Math.round(G/bright)},${Math.round(B/bright)},${a.toFixed(3)})`;
+        ctx.fillText(ch, c * CELL + 2, r * CELL + CELL * 0.52);
       }
-    }
-    // On mobile, blit the offscreen canvas in one go (avoids partial-draw flicker)
-    if (offCtx) {
-      ctx.clearRect(0, 0, W, H);
-      ctx.drawImage(offCvs, 0, 0);
     }
     t += 16;
   }
 
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) cancelAnimationFrame(rafId);
-    else requestAnimationFrame(drawAscii);
+    else if (!isMobile) requestAnimationFrame(drawAscii);
   });
+  // Draw first frame immediately; on desktop keep looping, on mobile stop after one
   requestAnimationFrame(drawAscii);
 
   // Dither overlay
