@@ -1777,3 +1777,57 @@ body:has(.site-nav) { padding-top: 52px; }
   padding: var(--gap-xl);
   font-size: 0.9rem;
 }
+
+/* ── MALI GPU PATCHES ──────────────────────────────────────────────────────
+   Mali tiling GPUs (common in Xiaomi, Samsung Exynos, MediaTek devices)
+   struggle with many compositor layers + per-frame backdrop-filter resolve.
+   JS detects Mali via WebGL and sets html.is-mali.  These rules swap to
+   cheaper equivalents.  All other GPUs (Adreno, Apple, desktop) are
+   completely unaffected.
+   ────────────────────────────────────────────────────────────────────────── */
+
+/* Patch 2: Replace per-element backdrop-filter with a single pre-blurred
+   background on .bg-blobs.  The blur is applied once at paint time instead
+   of re-evaluated per element per frame. */
+html.is-mali .bg-blobs {
+  filter: blur(40px);
+}
+html.is-mali .glass {
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  background: rgba(10,10,10,0.93) !important;
+}
+html.is-mali .glass-elevated {
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  background: rgba(14,14,14,0.95) !important;
+}
+html.is-mali .answer {
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  background: rgba(10,10,10,0.92) !important;
+}
+html.is-mali .answer.wrong {
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  filter: none !important;
+}
+html.is-mali .answer.player-wrong { filter: none !important; }
+html.is-mali .waiting-frame {
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  background: rgba(14,14,26,0.95) !important;
+}
+html.is-mali .sound-toggle,
+html.is-mali .mode-toggle {
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+}
+html.is-mali .site-nav {
+  backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+  background: rgba(8,8,8,0.95) !important;
+}
+
+/* Patch 6: Strip will-change on Mali so the driver doesn't over-promote
+   layers and exhaust its tile cache. */
+html.is-mali .bg-blob   { will-change: auto; }
+html.is-mali .fq        { will-change: auto; }
+html.is-mali .ticker-inner { will-change: auto; }
+html.is-mali .pod {
+  will-change: auto;
+  transform-style: flat;
+}

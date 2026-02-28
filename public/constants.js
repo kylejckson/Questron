@@ -14,6 +14,21 @@ const GAME_SERVER_URL = _serverOverride
     : 'https://questron-game.kyden.workers.dev';
 const GAME_SERVER_WS = GAME_SERVER_URL.replace(/^http/, 'ws');
 
+// ── Mali GPU detection ────────────────────────────────────────────────────
+// Mali tiling GPUs (Xiaomi, Samsung Exynos, MediaTek) struggle with many
+// compositor layers + backdrop-filter.  Detect via WebGL renderer string
+// and tag <html> so CSS can swap to cheaper equivalents.
+(function detectMali() {
+  try {
+    const gl = document.createElement('canvas').getContext('webgl');
+    const ext = gl && gl.getExtension('WEBGL_debug_renderer_info');
+    if (ext && /mali/i.test(gl.getParameter(ext.UNMASKED_RENDERER_WEBGL))) {
+      document.documentElement.classList.add('is-mali');
+    }
+  } catch (_) { /* WebGL unavailable — no tag, no harm */ }
+})();
+const _isMali = document.documentElement.classList.contains('is-mali');
+
 // ── WebSocket wrapper ─────────────────────────────────────────────────────
 // Provides a Socket.IO-like .on() / .emit(type, payload, ack?) API over a
 // single native WebSocket, with auto-reconnect and message queuing.
@@ -202,28 +217,33 @@ function initPulseBackground() {
 
   const cvs = document.createElement('canvas');
   cvs.id = 'bg-ascii-canvas';
-  cvs.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;contain:strict;-webkit-backface-visibility:hidden;backface-visibility:hidden;';
+  // On Mali, render at half resolution and scale up via CSS — halves the GPU
+  // texture that the tiling compositor has to cache.
+  const _canvasScale = _isMali ? 0.5 : 1;
+  cvs.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;contain:strict;-webkit-backface-visibility:hidden;backface-visibility:hidden;'
+    + (_isMali ? 'image-rendering:pixelated;' : '');
   document.body.insertBefore(cvs, blobs.nextSibling);
   const ctx = cvs.getContext('2d');
 
   let t = 0, lastTs = 0, rafId = null;
-  const FRAME_INTERVAL = 110; // ~9 fps
+  const FRAME_INTERVAL = _isMali ? 200 : 110; // Mali ~5fps, others ~9fps
 
   function drawAscii(ts) {
     rafId = requestAnimationFrame(drawAscii);
     if (ts - lastTs < FRAME_INTERVAL) return;
     lastTs = ts;
 
-    const W = window.innerWidth;
-    const H = window.innerHeight;
+    const W = Math.round(window.innerWidth  * _canvasScale);
+    const H = Math.round(window.innerHeight * _canvasScale);
     if (cvs.width !== W || cvs.height !== H) {
       cvs.width = W; cvs.height = H;
     }
     ctx.clearRect(0, 0, W, H);
 
-    const cols = Math.ceil(W / CELL);
-    const rows = Math.ceil(H / CELL);
-    ctx.font = `${Math.round(CELL * 0.62)}px 'Space Mono', monospace`;
+    const SCALED_CELL = CELL * _canvasScale;
+    const cols = Math.ceil(W / SCALED_CELL);
+    const rows = Math.ceil(H / SCALED_CELL);
+    ctx.font = `${Math.round(SCALED_CELL * 0.62)}px 'Space Mono', monospace`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
 
@@ -251,7 +271,7 @@ function initPulseBackground() {
         const ch   = ASCII_CHARS[idx];
         const a    = Math.min(0.55, 0.06 + bright * 0.52);
         ctx.fillStyle = `rgba(${Math.round(R/bright)},${Math.round(G/bright)},${Math.round(B/bright)},${a.toFixed(3)})`;
-        ctx.fillText(ch, c * CELL + 2, r * CELL + CELL * 0.52);
+        ctx.fillText(ch, c * SCALED_CELL + 2, r * SCALED_CELL + SCALED_CELL * 0.52);
       }
     }
     t += 16;
