@@ -209,7 +209,14 @@ function initPulseBackground() {
   let t = 0, lastTs = 0, rafId = null;
   // Throttle more aggressively on mobile to prevent compositing flicker
   const isMobile = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-  const FRAME_INTERVAL = isMobile ? 200 : 110; // ~5fps mobile, ~9fps desktop
+  const FRAME_INTERVAL = isMobile ? 250 : 110; // ~4fps mobile, ~9fps desktop
+
+  // On mobile, use double-buffering to avoid visible canvas clear/redraw flicker
+  let offCvs, offCtx;
+  if (isMobile) {
+    offCvs = document.createElement('canvas');
+    offCtx = offCvs.getContext('2d');
+  }
 
   function drawAscii(ts) {
     rafId = requestAnimationFrame(drawAscii);
@@ -220,14 +227,19 @@ function initPulseBackground() {
     const H = window.innerHeight;
     if (cvs.width !== W || cvs.height !== H) {
       cvs.width = W; cvs.height = H;
+      if (offCvs) { offCvs.width = W; offCvs.height = H; }
     }
-    ctx.clearRect(0, 0, W, H);
+
+    // Pick the drawing context — offscreen on mobile, direct on desktop
+    const drawCtx = offCtx || ctx;
+    if (!offCtx) ctx.clearRect(0, 0, W, H);
+    else drawCtx.clearRect(0, 0, W, H);
 
     const cols = Math.ceil(W / CELL);
     const rows = Math.ceil(H / CELL);
-    ctx.font = `${Math.round(CELL * 0.62)}px 'Space Mono', monospace`;
-    ctx.textAlign = 'left';
-    ctx.textBaseline = 'middle';
+    drawCtx.font = `${Math.round(CELL * 0.62)}px 'Space Mono', monospace`;
+    drawCtx.textAlign = 'left';
+    drawCtx.textBaseline = 'middle';
 
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
@@ -252,9 +264,14 @@ function initPulseBackground() {
         const idx  = Math.min(ASCII_CHARS.length - 1, Math.floor(bright * (ASCII_CHARS.length - 0.5)));
         const ch   = ASCII_CHARS[idx];
         const a    = Math.min(0.55, 0.06 + bright * 0.52);
-        ctx.fillStyle = `rgba(${Math.round(R/bright)},${Math.round(G/bright)},${Math.round(B/bright)},${a.toFixed(3)})`;
-        ctx.fillText(ch, c * CELL + 2, r * CELL + CELL * 0.52);
+        drawCtx.fillStyle = `rgba(${Math.round(R/bright)},${Math.round(G/bright)},${Math.round(B/bright)},${a.toFixed(3)})`;
+        drawCtx.fillText(ch, c * CELL + 2, r * CELL + CELL * 0.52);
       }
+    }
+    // On mobile, blit the offscreen canvas in one go (avoids partial-draw flicker)
+    if (offCtx) {
+      ctx.clearRect(0, 0, W, H);
+      ctx.drawImage(offCvs, 0, 0);
     }
     t += 16;
   }

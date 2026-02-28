@@ -187,9 +187,36 @@ body {
   opacity: 0.55;
   mix-blend-mode: screen;
   animation: blobDrift linear infinite;
-  will-change: transform, border-radius;
+  will-change: transform;
   -webkit-backface-visibility: hidden;
   backface-visibility: hidden;
+}
+
+/* On mobile/touch devices, disable the expensive animated blur+blend blobs.
+   The .bg-blobs container gets a static gradient background instead (see JS). */
+@media (hover: none) and (pointer: coarse) {
+  .bg-blob {
+    animation: none !important;
+    will-change: auto;
+  }
+  .bg-blobs {
+    /* Static colour washes replace the animated blobs — identical visual at
+       a fraction of the GPU cost (no per-frame blur + blend-mode compositing) */
+    background:
+      radial-gradient(ellipse 65% 55% at 10% 8%,   rgba(58,90,0,0.55) 0%, transparent 70%),
+      radial-gradient(ellipse 52% 58% at 90% 92%,  rgba(107,37,0,0.55) 0%, transparent 70%),
+      radial-gradient(ellipse 42% 42% at 72% 45%,  rgba(0,77,48,0.55) 0%, transparent 70%),
+      radial-gradient(ellipse 32% 36% at 55% 22%,  rgba(90,68,0,0.55) 0%, transparent 70%);
+  }
+  .bg-blobs .bg-blob {
+    display: none;
+  }
+  /* Skip dither + scanlines on mobile — they add compositor layers for
+     an effect that's barely visible on small high-DPI screens anyway */
+  .bg-dither,
+  .bg-scanlines {
+    display: none !important;
+  }
 }
 .bg-blob:nth-child(1) {
   width: 650px; height: 550px;
